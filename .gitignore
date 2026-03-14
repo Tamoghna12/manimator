@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Generated videos and media
+*.webm
+*.mp4
+*.mp3
+*.mov
+*.wav
+media/
+.portrait_*/
+vidgen_output/
+
+# Generated code from storyboards
+crispr_video.py
+crispr_reel.py
+gradient_descent.py
+
+# Manual Manim scripts (not part of vidgen engine)
+ml_bioinformatics.py
+msa_to_structure.py
+ml_bioinformatics_explainer.mp4
+msa_to_structure_pipeline.webm
+msa_to_structure_explainer.html
+
+# Post copy text files
+*.txt
+!requirements.txt
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Conversation logs
+manim_convo.txt
+
+# Claude internal
+.claude/

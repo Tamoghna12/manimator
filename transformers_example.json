@@ -1,0 +1,78 @@
+{
+  "meta": {
+    "title": "How Transformers Work",
+    "color_theme": "tol_bright",
+    "format": "instagram_reel"
+  },
+  "scenes": [
+    {
+      "type": "hook",
+      "id": "hook",
+      "hook_text": "One architecture powers ChatGPT, DALL-E, and AlphaFold",
+      "subtitle": "It's called the Transformer"
+    },
+    {
+      "type": "bullet_list",
+      "id": "what",
+      "header": "What is a Transformer?",
+      "items": [
+        "A neural network that processes all tokens in parallel",
+        "Uses attention to learn which words relate to which",
+        "Replaced RNNs for nearly all sequence tasks"
+      ],
+      "callout": "65,000+ papers cite the original Transformer paper"
+    },
+    {
+      "type": "flowchart",
+      "id": "how",
+      "header": "Core Mechanism",
+      "stages": [
+        {
+          "label": "Token Embedding",
+          "color_key": "blue"
+        },
+        {
+          "label": "Self-Attention",
+          "color_key": "orange"
+        },
+        {
+          "label": "Feed-Forward",
+          "color_key": "green"
+        }
+      ],
+      "callout": "Multi-head attention lets the model focus on different relationships simultaneously."
+    },
+    {
+      "type": "bar_chart",
+      "id": "scale",
+      "header": "Model Scale (Parameters)",
+      "bars": [
+        {
+          "label": "BERT",
+          "value": 340,
+          "color_key": "blue"
+        },
+        {
+          "label": "GPT-3",
+          "value": 175000,
+          "color_key": "orange"
+        },
+        {
+          "label": "GPT-4",
+          "value": 1800000,
+          "color_key": "red"
+        }
+      ],
+      "value_suffix": "M",
+      "callout": "Scaling laws show predictable improvement with more parameters."
+    },
+    {
+      "type": "closing",
+      "id": "refs",
+      "references": [
+        "Vaswani et al. (2017) NeurIPS",
+        "Brown et al. (2020) NeurIPS"
+      ]
+    }
+  ]
+}

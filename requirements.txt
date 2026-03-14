@@ -1,0 +1,6 @@
+manim>=0.18.0
+pydantic>=2.0
+flask>=2.3
+playwright>=1.40
+edge-tts>=6.1
+gTTS>=2.3

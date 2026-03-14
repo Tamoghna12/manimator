@@ -1,0 +1,132 @@
+{
+  "meta": {
+    "title": "Gradient Descent in Neural Networks",
+    "resolution": [1920, 1080],
+    "fps": 60,
+    "output_format": "webm",
+    "color_theme": "tol_bright"
+  },
+  "scenes": [
+    {
+      "type": "title",
+      "id": "title",
+      "title": "Gradient Descent: How Neural Networks Learn",
+      "subtitle": "From Loss Landscapes to Weight Updates",
+      "footnote": "Ruder (2016) arXiv:1609.04747 — An overview of gradient descent optimization"
+    },
+    {
+      "type": "bullet_list",
+      "id": "intuition",
+      "header": "1. Core Intuition",
+      "items": [
+        "A neural network is a parameterized function f(x; θ)",
+        "Training = finding θ that minimizes a loss function L(θ)",
+        "Gradient ∇L(θ) points in the direction of steepest ascent",
+        "We step opposite to the gradient: θ ← θ − η∇L(θ)",
+        "Learning rate η controls step size (too large = diverge, too small = slow)"
+      ],
+      "callout": "Gradient descent is guaranteed to converge to a local minimum for convex functions (Boyd & Vandenberghe, 2004)."
+    },
+    {
+      "type": "flowchart",
+      "id": "training_loop",
+      "header": "2. The Training Loop",
+      "stages": [
+        {"label": "Forward\nPass", "color_key": "blue", "bg": "#E8F0FA"},
+        {"label": "Compute\nLoss", "color_key": "red", "bg": "#FBE8E8"},
+        {"label": "Backward\nPass", "color_key": "green", "bg": "#E8F5E8"},
+        {"label": "Update\nWeights", "color_key": "purple", "bg": "#F0E8F5"},
+        {"label": "Repeat", "color_key": "cyan", "bg": "#E8F5F5"}
+      ],
+      "recycle": {"from_idx": 4, "to_idx": 0, "label": "Until convergence"},
+      "callout": "Backpropagation computes ∇L via the chain rule in O(n) time (Rumelhart et al., 1986)."
+    },
+    {
+      "type": "comparison_table",
+      "id": "variants",
+      "header": "3. Optimizer Variants",
+      "columns": ["Optimizer", "Update Rule", "Adaptive LR", "Momentum"],
+      "rows": [
+        ["SGD", "θ − η∇L", "No", "Optional"],
+        ["Adam", "θ − η·m/(√v + ε)", "Yes", "Yes (β₁, β₂)"],
+        ["AdaGrad", "θ − η·∇L/√G", "Yes", "No"],
+        ["RMSProp", "θ − η·∇L/√E[g²]", "Yes", "No"],
+        ["AdamW", "Adam + decoupled L2", "Yes", "Yes"]
+      ],
+      "callout": "Adam (Kingma & Ba, 2015) is the default for most deep learning tasks."
+    },
+    {
+      "type": "bar_chart",
+      "id": "convergence",
+      "header": "4. Convergence Speed (epochs to 95% accuracy)",
+      "bars": [
+        {"label": "SGD", "value": 120, "color_key": "blue"},
+        {"label": "SGD+\nMomentum", "value": 65, "color_key": "cyan"},
+        {"label": "AdaGrad", "value": 80, "color_key": "green"},
+        {"label": "RMSProp", "value": 45, "color_key": "red"},
+        {"label": "Adam", "value": 30, "color_key": "purple"}
+      ],
+      "callout": "Adaptive methods converge faster but may generalize worse (Wilson et al., 2017 NeurIPS)."
+    },
+    {
+      "type": "equation",
+      "id": "adam_update",
+      "header": "5. The Adam Update Rule",
+      "latex": "\\theta_{t+1} = \\theta_t - \\frac{\\eta}{\\sqrt{\\hat{v}_t} + \\epsilon} \\cdot \\hat{m}_t",
+      "explanation": "Combines momentum (first moment) with RMSProp (second moment) for adaptive per-parameter learning rates.",
+      "callout": "Default hyperparameters: η=0.001, β₁=0.9, β₂=0.999, ε=1e-8."
+    },
+    {
+      "type": "scatter_plot",
+      "id": "loss_landscape",
+      "header": "6. Loss Landscape Topology",
+      "clusters": [
+        {"label": "Global minimum", "center": [2.5, 2.5], "n": 15, "spread": 0.3, "color_key": "green"},
+        {"label": "Local minima", "center": [-2.0, 1.0], "n": 25, "spread": 0.6, "color_key": "blue"},
+        {"label": "Saddle points", "center": [0.5, -2.0], "n": 20, "spread": 1.0, "color_key": "red"},
+        {"label": "Plateau regions", "center": [-3.0, -2.5], "n": 30, "spread": 1.2, "color_key": "cyan"}
+      ],
+      "axes": ["Weight dimension 1", "Weight dimension 2"],
+      "callout": "In high dimensions, saddle points are far more common than local minima (Dauphin et al., 2014)."
+    },
+    {
+      "type": "pipeline_diagram",
+      "id": "modern_training",
+      "header": "7. Modern Training Pipeline",
+      "left_track": {
+        "label": "Data Pipeline",
+        "color_key": "blue",
+        "sublabel": "Augmentation, batching, prefetch"
+      },
+      "right_track": {
+        "label": "Regularization",
+        "color_key": "green",
+        "sublabel": "Dropout, weight decay, early stopping"
+      },
+      "center_block": {
+        "label": "Training Engine",
+        "color_key": "red",
+        "items": [
+          "Mixed-precision (FP16/BF16)",
+          "Gradient accumulation",
+          "Learning rate scheduling",
+          "Distributed data parallel",
+          "Gradient clipping"
+        ]
+      },
+      "callout": "Modern training uses cosine annealing with warm restarts (Loshchilov & Hutter, 2017)."
+    },
+    {
+      "type": "closing",
+      "id": "refs",
+      "title": "Key References",
+      "references": [
+        "Rumelhart et al. (1986) Nature 323, 533-536",
+        "Kingma & Ba (2015) ICLR — Adam optimizer",
+        "Ruder (2016) arXiv:1609.04747 — Optimizer survey",
+        "Dauphin et al. (2014) NeurIPS — Saddle points",
+        "Loshchilov & Hutter (2017) ICLR — Cosine annealing"
+      ]
+    }
+  ]
+}

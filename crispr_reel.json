@@ -1,0 +1,61 @@
+{
+  "meta": {
+    "title": "CRISPR in 60 Seconds",
+    "resolution": [1080, 1920],
+    "fps": 60,
+    "output_format": "webm",
+    "color_theme": "npg",
+    "format": "instagram_reel"
+  },
+  "scenes": [
+    {
+      "type": "hook",
+      "id": "hook",
+      "hook_text": "Scientists can now edit ANY gene in your DNA",
+      "subtitle": "Here's how CRISPR works"
+    },
+    {
+      "type": "bullet_list",
+      "id": "what",
+      "header": "What is CRISPR?",
+      "items": [
+        "Molecular scissors that cut DNA at precise locations",
+        "Guided by a 20-letter RNA address tag",
+        "Can delete, replace, or insert genes"
+      ],
+      "callout": "Nobel Prize in Chemistry 2020"
+    },
+    {
+      "type": "flowchart",
+      "id": "how",
+      "header": "How It Works",
+      "stages": [
+        {"label": "Design\ngRNA", "color_key": "blue", "bg": "#E8F4FD"},
+        {"label": "Cas9\nCuts", "color_key": "red", "bg": "#FBE8E8"},
+        {"label": "Cell\nRepairs", "color_key": "green", "bg": "#E8F5E8"}
+      ],
+      "callout": "The cell's own repair machinery fixes the cut."
+    },
+    {
+      "type": "bar_chart",
+      "id": "stats",
+      "header": "Editing Efficiency",
+      "bars": [
+        {"label": "Gene\nKnockout", "value": 95, "color_key": "blue"},
+        {"label": "Gene\nInsert", "value": 40, "color_key": "green"},
+        {"label": "Base\nEdit", "value": 75, "color_key": "orange"}
+      ],
+      "value_suffix": "%",
+      "callout": "First CRISPR therapy approved by FDA in 2023."
+    },
+    {
+      "type": "closing",
+      "id": "end",
+      "title": "Follow for more science!",
+      "references": [
+        "Jinek et al. (2012) Science",
+        "Doudna & Charpentier (2014) Science"
+      ]
+    }
+  ]
+}

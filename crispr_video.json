@@ -1,0 +1,130 @@
+{
+  "meta": {
+    "title": "How CRISPR-Cas9 Works",
+    "author": "vidgen",
+    "resolution": [1920, 1080],
+    "fps": 60,
+    "output_format": "webm",
+    "color_theme": "wong"
+  },
+  "scenes": [
+    {
+      "type": "title",
+      "id": "title",
+      "title": "CRISPR-Cas9: Programmable Genome Editing",
+      "subtitle": "From Bacterial Immunity to Therapeutic Tool",
+      "footnote": "Jinek et al. (2012) Science 337, 816-821"
+    },
+    {
+      "type": "bullet_list",
+      "id": "components",
+      "header": "1. Core Components",
+      "items": [
+        "Guide RNA (gRNA): 20-nt spacer complementary to target DNA",
+        "Cas9 nuclease: HNH and RuvC catalytic domains",
+        "PAM sequence (5'-NGG-3'): required for target recognition",
+        "Ribonucleoprotein (RNP) complex: gRNA-Cas9 assembly"
+      ],
+      "callout": "The gRNA-Cas9 complex scans 3 billion base pairs to find one 20-nt target."
+    },
+    {
+      "type": "flowchart",
+      "id": "mechanism",
+      "header": "2. Editing Mechanism",
+      "stages": [
+        {"label": "gRNA\nDesign", "color_key": "blue", "bg": "#E8F4FD"},
+        {"label": "RNP\nAssembly", "color_key": "cyan", "bg": "#E8F8FD"},
+        {"label": "PAM\nRecognition", "color_key": "green", "bg": "#E8F8F0"},
+        {"label": "R-loop\nFormation", "color_key": "orange", "bg": "#FFF8ED"},
+        {"label": "DSB\nCreation", "color_key": "deep_red", "bg": "#FFF0EE"},
+        {"label": "DNA\nRepair", "color_key": "purple", "bg": "#F3E8FF"}
+      ],
+      "callout": "Double-strand break triggers endogenous repair: NHEJ (error-prone) or HDR (precise)."
+    },
+    {
+      "type": "comparison_table",
+      "id": "comparison",
+      "header": "3. CRISPR vs Earlier Nuclease Technologies",
+      "columns": ["Feature", "ZFN", "TALEN", "CRISPR-Cas9"],
+      "rows": [
+        ["Design complexity", "High (protein engineering)", "Moderate (repeat assembly)", "Low (20-nt RNA)"],
+        ["Cost per target", "$5,000+", "$1,000+", "<$100"],
+        ["Multiplexing", "Not feasible", "Difficult", "Straightforward"],
+        ["Off-target rate", "Variable", "Low", "Moderate (improvable)"],
+        ["Delivery", "Plasmid/viral", "Plasmid/viral", "RNP/mRNA/plasmid/viral"]
+      ]
+    },
+    {
+      "type": "bar_chart",
+      "id": "efficiency",
+      "header": "4. Repair Pathway Efficiency",
+      "bars": [
+        {"label": "NHEJ", "value": 92, "color_key": "blue"},
+        {"label": "HDR", "value": 38, "color_key": "green"},
+        {"label": "Base\nEditing", "value": 78, "color_key": "orange"},
+        {"label": "Prime\nEditing", "value": 55, "color_key": "deep_red"}
+      ],
+      "value_suffix": "%",
+      "callout": "HDR requires co-delivery of donor template and cell-cycle synchronization."
+    },
+    {
+      "type": "scatter_plot",
+      "id": "offtarget",
+      "header": "5. On-Target vs Off-Target Activity",
+      "clusters": [
+        {"label": "On-target sites", "center": [2.5, 2.0], "n": 35, "spread": 0.5, "color_key": "blue"},
+        {"label": "Off-target (Cas9)", "center": [-2.0, -1.5], "n": 20, "spread": 1.0, "color_key": "deep_red"},
+        {"label": "Off-target (HiFi Cas9)", "center": [-1.0, -2.5], "n": 8, "spread": 0.5, "color_key": "orange"}
+      ],
+      "axes": ["Specificity Score", "Activity Score"],
+      "callout": "High-fidelity Cas9 variants (eSpCas9, HiFi) reduce off-target cleavage 10-100x."
+    },
+    {
+      "type": "equation",
+      "id": "efficiency_model",
+      "header": "6. Editing Efficiency Model",
+      "latex": "\\eta = \\frac{N_{\\text{edited}}}{N_{\\text{total}}} \\times 100\\%",
+      "explanation": "Efficiency depends on gRNA GC content, chromatin accessibility, delivery method, and cell type.",
+      "callout": "Typical efficiencies: 50-90% (NHEJ), 5-50% (HDR), 20-80% (base editing)."
+    },
+    {
+      "type": "pipeline_diagram",
+      "id": "therapeutic",
+      "header": "7. Therapeutic CRISPR Pipeline",
+      "left_track": {
+        "label": "Target Discovery",
+        "color_key": "blue",
+        "sublabel": "GWAS, functional genomics"
+      },
+      "right_track": {
+        "label": "Delivery System",
+        "color_key": "green",
+        "sublabel": "LNP, AAV, RNP"
+      },
+      "center_block": {
+        "label": "CRISPR Therapeutic",
+        "color_key": "orange",
+        "items": [
+          "gRNA optimization (specificity)",
+          "Cas9 variant selection",
+          "Ex vivo vs in vivo delivery",
+          "Safety profiling (off-target)",
+          "IND-enabling studies"
+        ]
+      },
+      "callout": "Casgevy (exa-cel): first FDA-approved CRISPR therapy for sickle cell disease (2023)."
+    },
+    {
+      "type": "closing",
+      "id": "refs",
+      "title": "Key References",
+      "references": [
+        "Jinek et al. (2012) Science 337, 816-821",
+        "Doudna & Charpentier (2014) Science 346, 1258096",
+        "Ran et al. (2013) Nature Protocols 8, 2281-2308",
+        "Anzalone et al. (2019) Nature 576, 149-157",
+        "Frangoul et al. (2021) NEJM 384, 252-260"
+      ]
+    }
+  ]
+}
