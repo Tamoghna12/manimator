@@ -570,7 +570,7 @@ FORMAT NOTE: This is for a LANDSCAPE presentation/LinkedIn video.
 - Use 4-6 bars per bar_chart
 - Include callouts with key takeaways on most scenes"""
 
-    prompt = f"""Generate a vidgen storyboard JSON for the topic:
+    prompt = f"""Generate a manimator storyboard JSON for the topic:
 "{topic}"
 
 {format_note}

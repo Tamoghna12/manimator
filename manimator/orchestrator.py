@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
 """
-vidgen — Automated scientific video generation from JSON storyboards.
+manimator — Automated scientific video generation from JSON storyboards.
 
 Usage:
     # Standard presentation video:
-    python -m vidgen.orchestrator -s my_video.json
+    python -m manimator.orchestrator -s my_video.json
 
     # Instagram Reel with narration + subtitles:
-    python -m vidgen.orchestrator -s my_video.json --format instagram_reel --narrate --subtitles
+    python -m manimator.orchestrator -s my_video.json --format instagram_reel --narrate --subtitles
 
     # LinkedIn post with post copy:
-    python -m vidgen.orchestrator -s my_video.json --format linkedin --narrate --post-copy
+    python -m manimator.orchestrator -s my_video.json --format linkedin --narrate --post-copy
 
     # Quick preview:
-    python -m vidgen.orchestrator -s my_video.json -q low
+    python -m manimator.orchestrator -s my_video.json -q low
 
     # Parallel rendering:
-    python -m vidgen.orchestrator -s my_video.json -w 4
+    python -m manimator.orchestrator -s my_video.json -w 4
 """
 
 import argparse
@@ -25,10 +25,10 @@ import sys
 import time
 from pathlib import Path
 
-from vidgen.schema import Storyboard
-from vidgen.codegen import generate
-from vidgen.renderer import render_all, concatenate
-from vidgen.social import FORMATS, generate_post_copy
+from manimator.schema import Storyboard
+from manimator.codegen import generate
+from manimator.renderer import render_all, concatenate
+from manimator.social import FORMATS, generate_post_copy
 
 
 def main():
@@ -73,7 +73,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
     t_start = time.time()
 
     # ── 1. Load and validate ──
-    print(f"[vidgen] Loading: {args.storyboard}")
+    print(f"[manimator] Loading: {args.storyboard}")
     with open(args.storyboard) as f:
         raw = json.load(f)
 
@@ -86,7 +86,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
     storyboard = Storyboard(**raw)
     fmt_name = storyboard.meta.format
     fmt = FORMATS.get(fmt_name, FORMATS["presentation"])
-    print(f"[vidgen] {len(storyboard.scenes)} scenes | "
+    print(f"[manimator] {len(storyboard.scenes)} scenes | "
           f"theme={storyboard.meta.color_theme} | "
           f"format={fmt.name} ({fmt.width}x{fmt.height})")
 
@@ -103,29 +103,29 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
         class_names = [cn for cn in all_class_names
                        if any(sid in cn for sid in scene_ids)]
         if not class_names:
-            print(f"[vidgen] ERROR: No matching scenes for {args.scenes}")
+            print(f"[manimator] ERROR: No matching scenes for {args.scenes}")
             sys.exit(1)
     else:
         class_names = all_class_names
 
     if args.gen_only:
-        print(f"[vidgen] Code at {gen_file}. Skipping render.")
+        print(f"[manimator] Code at {gen_file}. Skipping render.")
         return
 
     # ── 3. Render ──
     t_render = time.time()
-    print(f"[vidgen] Rendering {len(class_names)} scenes "
+    print(f"[manimator] Rendering {len(class_names)} scenes "
           f"(quality={args.quality}, workers={args.workers})...")
 
     video_files = render_all(
         gen_file, class_names,
         quality=args.quality, workers=args.workers,
     )
-    print(f"[vidgen] Rendered in {time.time() - t_render:.1f}s")
+    print(f"[manimator] Rendered in {time.time() - t_render:.1f}s")
 
     # ── 4. Narration + Subtitles ──
     if args.narrate or args.subtitles:
-        from vidgen.narration import (
+        from manimator.narration import (
             generate_narration_script, synthesize_audio,
             merge_audio_video, VOICES,
         )
@@ -155,7 +155,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
 
             if args.subtitles:
                 # Generate subtitles + audio together
-                from vidgen.subtitles import generate_subtitles, burn_subtitles
+                from manimator.subtitles import generate_subtitles, burn_subtitles
                 srt_path = srt_dir / f"{cn}.srt"
                 generate_subtitles(script, srt_path, audio_path,
                                    voice=voice, rate=args.rate)
@@ -190,7 +190,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
 
         video_files = processed_files
         feature = "narration + subtitles" if args.subtitles else "narration"
-        print(f"[vidgen] {feature.capitalize()} complete")
+        print(f"[manimator] {feature.capitalize()} complete")
 
     # ── 5. Concatenate ──
     output = args.output
@@ -209,10 +209,10 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
             f.write(f"=== {fmt.name} Post Copy ===\n\n")
             f.write(post["caption"])
             f.write(f"\n\n=== Hook Text ===\n{post['hook_text']}\n")
-        print(f"[vidgen] Post copy saved: {copy_file}")
+        print(f"[manimator] Post copy saved: {copy_file}")
 
     total = time.time() - t_start
-    print(f"[vidgen] Done! {output} ({file_size:.1f} MB) in {total:.0f}s")
+    print(f"[manimator] Done! {output} ({file_size:.1f} MB) in {total:.0f}s")
 
 
 if __name__ == "__main__":

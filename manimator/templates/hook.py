@@ -1,7 +1,7 @@
 """Hook scene — attention-grabbing opening for social media."""
 
 from manim import *
-from vidgen.config import COLORS, TIMING, FONTS
+from manimator.config import COLORS, TIMING, FONTS
 
 
 def render(scene: Scene, data: dict):

@@ -14,6 +14,7 @@ build/
 *.wav
 media/
 .portrait_*/
+manimator_output/
 vidgen_output/
 
 # Generated code from storyboards
@@ -21,7 +22,7 @@ crispr_video.py
 crispr_reel.py
 gradient_descent.py
 
-# Manual Manim scripts (not part of vidgen engine)
+# Manual Manim scripts (not part of manimator engine)
 ml_bioinformatics.py
 msa_to_structure.py
 ml_bioinformatics_explainer.mp4

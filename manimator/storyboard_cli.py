@@ -4,22 +4,22 @@ Storyboard authoring CLI — scaffold, validate, and preview storyboards.
 
 Usage:
     # List available templates and structures
-    python -m vidgen.storyboard_cli list
+    python -m manimator.storyboard_cli list
 
     # Generate an LLM prompt for a topic
-    python -m vidgen.storyboard_cli prompt "How CRISPR works" --domain biology_reel
+    python -m manimator.storyboard_cli prompt "How CRISPR works" --domain biology_reel
 
     # Scaffold a blank storyboard from a structure
-    python -m vidgen.storyboard_cli scaffold --structure social_reel --topic "My Topic" -o my_video.json
+    python -m manimator.storyboard_cli scaffold --structure social_reel --topic "My Topic" -o my_video.json
 
     # Get a complete example storyboard
-    python -m vidgen.storyboard_cli example --domain cs_reel -o transformers_reel.json
+    python -m manimator.storyboard_cli example --domain cs_reel -o transformers_reel.json
 
     # Validate an existing storyboard
-    python -m vidgen.storyboard_cli validate my_video.json
+    python -m manimator.storyboard_cli validate my_video.json
 
     # Show schema reference for a scene type
-    python -m vidgen.storyboard_cli schema bar_chart
+    python -m manimator.storyboard_cli schema bar_chart
 """
 
 import argparse
@@ -27,8 +27,8 @@ import json
 import sys
 from pathlib import Path
 
-from vidgen.schema import Storyboard
-from vidgen.topic_templates import (
+from manimator.schema import Storyboard
+from manimator.topic_templates import (
     STRUCTURES, DOMAIN_TEMPLATES, SCENE_SCHEMAS,
     get_storyboard_prompt, list_structures, list_domains,
     get_example_storyboard,
@@ -165,9 +165,9 @@ def cmd_scaffold(args):
     print(f"Scenes: {len(scenes)}")
     print(f"Fill in the TODO fields, then render with:")
     if is_portrait:
-        print(f"  python -m vidgen.portrait -s {output} --narrate")
+        print(f"  python -m manimator.portrait -s {output} --narrate")
     else:
-        print(f"  python -m vidgen.orchestrator -s {output} --narrate")
+        print(f"  python -m manimator.orchestrator -s {output} --narrate")
 
 
 def cmd_example(args):

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-vidgen Web UI — Flask app for storyboard editing and video rendering.
+manimator Web UI — Flask app for storyboard editing and video rendering.
 
 Usage:
-    python -m vidgen.web.app
+    python -m manimator.web.app
     # Opens at http://localhost:5100
 """
 
@@ -19,19 +19,19 @@ from flask import (
     send_file, send_from_directory,
 )
 
-from vidgen.schema import Storyboard
-from vidgen.config import THEMES
-from vidgen.topic_templates import (
+from manimator.schema import Storyboard
+from manimator.config import THEMES
+from manimator.topic_templates import (
     STRUCTURES, DOMAIN_TEMPLATES, SCENE_SCHEMAS,
     get_storyboard_prompt, get_example_storyboard,
 )
-from vidgen.portrait.html_scenes import render_scene_html
+from manimator.portrait.html_scenes import render_scene_html
 
 app = Flask(__name__, static_folder="static")
 
 # In-memory job tracking
 JOBS = {}
-WORK_DIR = Path("vidgen_output")
+WORK_DIR = Path("manimator_output")
 WORK_DIR.mkdir(exist_ok=True)
 
 
@@ -186,7 +186,7 @@ def api_render():
 
     def run_render():
         is_portrait = fmt in ("instagram_reel", "tiktok", "youtube_short", "instagram_square")
-        module = "vidgen.portrait" if is_portrait else "vidgen.orchestrator"
+        module = "manimator.portrait" if is_portrait else "manimator.orchestrator"
         cmd = [
             "python", "-m", module,
             "-s", str(json_path),
@@ -232,7 +232,7 @@ def api_download(job_id):
     if not job or job["status"] != "done":
         return jsonify({"error": "Not ready"}), 404
     return send_file(job["output"], mimetype="video/webm", as_attachment=True,
-                     download_name=f"vidgen_{job_id}.webm")
+                     download_name=f"manimator_{job_id}.webm")
 
 
 # ── HTML Template ─────────────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ HTML_TEMPLATE = r"""
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>vidgen — Scientific Video Generator</title>
+<title>manimator — Scientific Video Generator</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
@@ -693,7 +693,7 @@ textarea {
     <!-- ── Sidebar ── -->
     <div class="sidebar">
         <div class="sidebar-header">
-            <h1>vidgen</h1>
+            <h1>manimator</h1>
             <p>Scientific Video Generator</p>
         </div>
 
@@ -1263,6 +1263,6 @@ function toast(msg, type = '') {
 if __name__ == "__main__":
     import webbrowser
     port = 5100
-    print(f"[vidgen] Starting web UI at http://localhost:{port}")
+    print(f"[manimator] Starting web UI at http://localhost:{port}")
     webbrowser.open(f"http://localhost:{port}")
     app.run(host="0.0.0.0", port=port, debug=False)

@@ -3,9 +3,9 @@
 Portrait video orchestrator — generates social media videos from JSON storyboards.
 
 Usage:
-    python -m vidgen.portrait.orchestrator -s crispr_reel.json
-    python -m vidgen.portrait.orchestrator -s crispr_reel.json --narrate --voice guy
-    python -m vidgen.portrait.orchestrator -s crispr_reel.json --format tiktok --narrate --post-copy
+    python -m manimator.portrait.orchestrator -s crispr_reel.json
+    python -m manimator.portrait.orchestrator -s crispr_reel.json --narrate --voice guy
+    python -m manimator.portrait.orchestrator -s crispr_reel.json --format tiktok --narrate --post-copy
 """
 
 import argparse
@@ -14,10 +14,10 @@ import sys
 import time
 from pathlib import Path
 
-from vidgen.schema import Storyboard
-from vidgen.config import THEMES
-from vidgen.portrait.html_scenes import render_scene_html
-from vidgen.portrait.renderer import (
+from manimator.schema import Storyboard
+from manimator.config import THEMES
+from manimator.portrait.html_scenes import render_scene_html
+from manimator.portrait.renderer import (
     render_all_scenes, concatenate_videos, _get_scene_duration,
 )
 
@@ -113,7 +113,7 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
 
     # ── 4. Narration ──
     if args.narrate:
-        from vidgen.narration import (
+        from manimator.narration import (
             generate_narration_script, synthesize_audio,
             merge_audio_video, VOICES,
         )
@@ -160,7 +160,7 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
 
     # ── 6. Post copy ──
     if args.post_copy:
-        from vidgen.social import generate_post_copy
+        from manimator.social import generate_post_copy
         post = generate_post_copy(raw, args.format)
         copy_file = output.with_suffix(".txt")
         with open(copy_file, "w") as f:

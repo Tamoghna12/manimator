@@ -1,6 +1,6 @@
 from manim import *
-from vidgen.config import COLORS, TIMING, FONTS
-from vidgen.helpers import fade_out_all
+from manimator.config import COLORS, TIMING, FONTS
+from manimator.helpers import fade_out_all
 
 
 def render(scene: Scene, data: dict):

@@ -1,7 +1,7 @@
 """Reusable Manim helper functions for all templates."""
 
 from manim import *
-from vidgen.config import COLORS, FONTS, SPACING, TIMING, PALETTE
+from manimator.config import COLORS, FONTS, SPACING, TIMING, PALETTE
 
 
 def create_section_header(title: str) -> VGroup:

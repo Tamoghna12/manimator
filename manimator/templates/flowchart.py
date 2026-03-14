@@ -1,7 +1,7 @@
 import numpy as np
 from manim import *
-from vidgen.config import COLORS, TIMING, FONTS, SPACING, PALETTE
-from vidgen.helpers import (
+from manimator.config import COLORS, TIMING, FONTS, SPACING, PALETTE
+from manimator.helpers import (
     create_section_header, fade_out_all, animate_callout, resolve_color,
 )
 
