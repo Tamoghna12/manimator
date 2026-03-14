@@ -2,34 +2,53 @@
 
 Supports three presets (ambient, corporate, cinematic) with automatic
 looping and volume ducking under narration via ffmpeg sidechaincompress.
-Music tracks are downloaded from Pixabay on first use and cached locally.
+Preset tones are generated locally via ffmpeg on first use and cached
+in ``~/.cache/manimator/music/``.  Users can also pass a path to any
+MP3 file instead of a preset name.
 """
 
 import logging
 import subprocess
-import urllib.request
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 CACHE_DIR = Path.home() / ".cache" / "manimator" / "music"
 
-# Pixabay royalty-free tracks (direct MP3 download URLs)
+# Preset definitions — generated locally via ffmpeg (no network needed)
 MUSIC_PRESETS = {
     "ambient": {
         "filename": "ambient_loop.mp3",
-        "url": "https://cdn.pixabay.com/audio/2024/11/28/audio_3a606a1e6e.mp3",
         "description": "Soft ambient pad, ideal for science explainers",
+        "ffmpeg_filter": (
+            "sine=frequency=174:duration=30[s1];"
+            "sine=frequency=220:duration=30[s2];"
+            "sine=frequency=261:duration=30[s3];"
+            "[s1][s2][s3]amix=inputs=3:duration=first[mix];"
+            "[mix]lowpass=f=300,volume=0.08,afade=t=in:d=2,afade=t=out:st=28:d=2"
+        ),
     },
     "corporate": {
         "filename": "corporate_loop.mp3",
-        "url": "https://cdn.pixabay.com/audio/2024/09/10/audio_6e4e1d39a4.mp3",
         "description": "Upbeat corporate background, suits product demos",
+        "ffmpeg_filter": (
+            "sine=frequency=330:duration=30[s1];"
+            "sine=frequency=440:duration=30[s2];"
+            "[s1][s2]amix=inputs=2:duration=first[mix];"
+            "[mix]lowpass=f=500,tremolo=f=4:d=0.3,volume=0.08,"
+            "afade=t=in:d=1,afade=t=out:st=28:d=2"
+        ),
     },
     "cinematic": {
         "filename": "cinematic_loop.mp3",
-        "url": "https://cdn.pixabay.com/audio/2024/10/16/audio_d25e7a8cfe.mp3",
         "description": "Dramatic cinematic underscore for high-impact content",
+        "ffmpeg_filter": (
+            "sine=frequency=110:duration=30[s1];"
+            "sine=frequency=165:duration=30[s2];"
+            "sine=frequency=82:duration=30[s3];"
+            "[s1][s2][s3]amix=inputs=3:duration=first[mix];"
+            "[mix]lowpass=f=250,volume=0.10,afade=t=in:d=3,afade=t=out:st=27:d=3"
+        ),
     },
 }
 
@@ -50,7 +69,7 @@ def _get_duration(path: Path) -> float:
 
 
 def ensure_music_asset(preset: str) -> Path:
-    """Download a music preset if not cached, return local path.
+    """Generate a music preset if not cached, return local path.
 
     If *preset* is not a known preset name it is treated as a local
     file path and returned directly.
@@ -69,11 +88,18 @@ def ensure_music_asset(preset: str) -> Path:
         return cached
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    log.info("Downloading music preset '%s' → %s", preset, cached)
-    try:
-        urllib.request.urlretrieve(info["url"], str(cached))
-    except Exception as exc:
-        raise RuntimeError(f"Failed to download music preset '{preset}': {exc}") from exc
+    log.info("Generating music preset '%s' → %s", preset, cached)
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "lavfi", "-i", info["ffmpeg_filter"],
+        "-c:a", "libmp3lame", "-q:a", "4",
+        str(cached),
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Failed to generate music preset '{preset}': {result.stderr}"
+        )
 
     return cached
 

@@ -19,7 +19,7 @@ class TestMusicPresets:
     def test_preset_has_required_keys(self):
         for name, info in MUSIC_PRESETS.items():
             assert "filename" in info, f"{name} missing filename"
-            assert "url" in info, f"{name} missing url"
+            assert "ffmpeg_filter" in info, f"{name} missing ffmpeg_filter"
             assert "description" in info, f"{name} missing description"
             assert info["filename"].endswith(".mp3"), f"{name} filename not MP3"
 
