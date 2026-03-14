@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manimator"
+version = "0.1.0"
+description = "Dual-engine scientific video generator — Manim for landscape, HTML/CSS+Playwright for portrait"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Tamoghna12" },
+]
+dependencies = [
+    "manim>=0.18.0",
+    "pydantic>=2.0",
+    "flask>=2.3",
+    "playwright>=1.40",
+    "edge-tts>=6.1",
+    "gTTS>=2.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "mypy",
+    "ruff",
+]
+
+[project.scripts]
+manimator-web = "manimator.web.__main__:main"
+manimator-render = "manimator.orchestrator:main"
+manimator-portrait = "manimator.portrait.__main__:main"
+manimator-storyboard = "manimator.storyboard_cli:main"
+
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

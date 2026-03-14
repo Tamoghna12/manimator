@@ -6,11 +6,14 @@ them into video with ffmpeg at controlled bitrate and framerate.
 Scene transitions (crossfade) are added at the ffmpeg level.
 """
 
+import logging
 import subprocess
 import tempfile
 import shutil
 import os
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from playwright.sync_api import sync_playwright
 
@@ -172,7 +175,7 @@ def render_all_scenes(html_dir: Path, scene_data_list: list,
         out_path = output_dir / f"{stem}.webm"
         duration = _get_scene_duration(scene_data)
 
-        print(f"  [portrait] Rendering {stem} ({duration:.1f}s, {int(duration*fps)} frames)...")
+        log.info("Rendering %s (%.1fs, %d frames)...", stem, duration, int(duration*fps))
         capture_scene(html_file, out_path, duration, width, height, fps)
         results.append(out_path)
 
@@ -319,7 +322,7 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            print(f"  [portrait] Crossfade failed, falling back to simple concat")
+            log.error("Crossfade failed, falling back to simple concat")
             _simple_concat(normalized, output_path, any_audio)
 
     # Cleanup

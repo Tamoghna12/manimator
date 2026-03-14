@@ -21,9 +21,12 @@ Usage:
 
 import argparse
 import json
+import logging
 import sys
 import time
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from manimator.schema import Storyboard
 from manimator.codegen import generate
@@ -73,7 +76,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
     t_start = time.time()
 
     # ── 1. Load and validate ──
-    print(f"[manimator] Loading: {args.storyboard}")
+    log.info("Loading: %s", args.storyboard)
     with open(args.storyboard) as f:
         raw = json.load(f)
 
@@ -86,9 +89,9 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
     storyboard = Storyboard(**raw)
     fmt_name = storyboard.meta.format
     fmt = FORMATS.get(fmt_name, FORMATS["presentation"])
-    print(f"[manimator] {len(storyboard.scenes)} scenes | "
-          f"theme={storyboard.meta.color_theme} | "
-          f"format={fmt.name} ({fmt.width}x{fmt.height})")
+    log.info("%d scenes | theme=%s | format=%s (%dx%d)",
+             len(storyboard.scenes), storyboard.meta.color_theme,
+             fmt.name, fmt.width, fmt.height)
 
     # ── 2. Generate code ──
     gen_file = args.storyboard.with_suffix(".py")
@@ -103,25 +106,25 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
         class_names = [cn for cn in all_class_names
                        if any(sid in cn for sid in scene_ids)]
         if not class_names:
-            print(f"[manimator] ERROR: No matching scenes for {args.scenes}")
+            log.error("No matching scenes for %s", args.scenes)
             sys.exit(1)
     else:
         class_names = all_class_names
 
     if args.gen_only:
-        print(f"[manimator] Code at {gen_file}. Skipping render.")
+        log.info("Code at %s. Skipping render.", gen_file)
         return
 
     # ── 3. Render ──
     t_render = time.time()
-    print(f"[manimator] Rendering {len(class_names)} scenes "
-          f"(quality={args.quality}, workers={args.workers})...")
+    log.info("Rendering %d scenes (quality=%s, workers=%d)...",
+             len(class_names), args.quality, args.workers)
 
     video_files = render_all(
         gen_file, class_names,
         quality=args.quality, workers=args.workers,
     )
-    print(f"[manimator] Rendered in {time.time() - t_render:.1f}s")
+    log.info("Rendered in %.1fs", time.time() - t_render)
 
     # ── 4. Narration + Subtitles ──
     if args.narrate or args.subtitles:
@@ -150,7 +153,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
                 processed_files.append(vf)
                 continue
 
-            print(f"  [{cn}] \"{script[:50]}...\"")
+            log.info("[%s] \"%s...\"", cn, script[:50])
             audio_path = audio_dir / f"{cn}.mp3"
 
             if args.subtitles:
@@ -168,7 +171,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
                                   output_sub, style=sub_style)
                     processed_files.append(str(output_sub))
                 except RuntimeError as e:
-                    print(f"  [{cn}] Subtitle burn failed: {e}")
+                    log.error("[%s] Subtitle burn failed: %s", cn, e)
                     # Fallback to narration only
                     synthesize_audio(script, audio_path, voice=voice, rate=args.rate)
                     narrated = Path(vf).parent / f"{cn}_narrated.webm"
@@ -185,12 +188,12 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
                     merge_audio_video(Path(vf), audio_path, narrated)
                     processed_files.append(str(narrated))
                 except Exception as e:
-                    print(f"  [{cn}] TTS/merge failed, using silent: {e}")
+                    log.error("[%s] TTS/merge failed, using silent: %s", cn, e)
                     processed_files.append(vf)
 
         video_files = processed_files
         feature = "narration + subtitles" if args.subtitles else "narration"
-        print(f"[manimator] {feature.capitalize()} complete")
+        log.info("%s complete", feature.capitalize())
 
     # ── 5. Concatenate ──
     output = args.output
@@ -209,10 +212,10 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
             f.write(f"=== {fmt.name} Post Copy ===\n\n")
             f.write(post["caption"])
             f.write(f"\n\n=== Hook Text ===\n{post['hook_text']}\n")
-        print(f"[manimator] Post copy saved: {copy_file}")
+        log.info("Post copy saved: %s", copy_file)
 
     total = time.time() - t_start
-    print(f"[manimator] Done! {output} ({file_size:.1f} MB) in {total:.0f}s")
+    log.info("Done! %s (%.1f MB) in %.0fs", output, file_size, total)
 
 
 if __name__ == "__main__":

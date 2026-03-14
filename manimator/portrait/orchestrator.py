@@ -10,9 +10,12 @@ Usage:
 
 import argparse
 import json
+import logging
 import sys
 import time
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 from manimator.schema import Storyboard
 from manimator.config import THEMES
@@ -68,7 +71,7 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
     t_start = time.time()
 
     # ── 1. Load storyboard ──
-    print(f"[portrait] Loading: {args.storyboard}")
+    log.info("Loading: %s", args.storyboard)
     with open(args.storyboard) as f:
         raw = json.load(f)
 
@@ -77,8 +80,9 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
     theme_name = storyboard.meta.color_theme
     theme = THEMES.get(theme_name, THEMES["wong"])
 
-    print(f"[portrait] {len(storyboard.scenes)} scenes | "
-          f"theme={theme_name} | format={fmt['name']} ({fmt['width']}x{fmt['height']})")
+    log.info("%d scenes | theme=%s | format=%s (%dx%d)",
+             len(storyboard.scenes), theme_name,
+             fmt['name'], fmt['width'], fmt['height'])
 
     # ── 2. Generate HTML scenes ──
     work_dir = args.storyboard.parent / f".portrait_{args.storyboard.stem}"
@@ -95,13 +99,13 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
 
         html_content = render_scene_html(sd, theme)
         if not html_content:
-            print(f"  [SKIP] Unknown scene type: {sd.get('type')}")
+            log.info("[SKIP] Unknown scene type: %s", sd.get('type'))
             continue
 
         html_file = html_dir / f"{scene_id}.html"
         html_file.write_text(html_content)
 
-    print(f"[portrait] Generated {len(list(html_dir.glob('*.html')))} HTML scenes")
+    log.info("Generated %d HTML scenes", len(list(html_dir.glob('*.html'))))
 
     # ── 3. Capture videos ──
     t_render = time.time()
@@ -109,7 +113,7 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
         html_dir, scene_data_list, video_dir,
         width=fmt["width"], height=fmt["height"], fps=args.fps,
     )
-    print(f"[portrait] Captured in {time.time() - t_render:.1f}s")
+    log.info("Captured in %.1fs", time.time() - t_render)
 
     # ── 4. Narration ──
     if args.narrate:
@@ -133,7 +137,7 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
 
             scene_id = vf.stem
             audio_path = audio_dir / f"{scene_id}.mp3"
-            print(f'  [{scene_id}] "{script[:50]}..."')
+            log.info('[%s] "%s..."', scene_id, script[:50])
 
             try:
                 synthesize_audio(script, audio_path, voice=voice, rate=args.rate)
@@ -141,11 +145,11 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
                 merge_audio_video(vf, audio_path, narrated)
                 narrated_files.append(narrated)
             except Exception as e:
-                print(f"  [{scene_id}] TTS failed, using silent: {e}")
+                log.error("[%s] TTS failed, using silent: %s", scene_id, e)
                 narrated_files.append(vf)
 
         video_files = narrated_files
-        print("[portrait] Narration complete")
+        log.info("Narration complete")
 
     # ── 5. Concatenate ──
     output = args.output
@@ -167,10 +171,10 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
             f.write(f"=== {fmt['name']} Post Copy ===\n\n")
             f.write(post["caption"])
             f.write(f"\n\n=== Hook Text ===\n{post['hook_text']}\n")
-        print(f"[portrait] Post copy saved: {copy_file}")
+        log.info("Post copy saved: %s", copy_file)
 
     total = time.time() - t_start
-    print(f"[portrait] Done! {output} ({file_size:.1f} MB) in {total:.0f}s")
+    log.info("Done! %s (%.1f MB) in %.0fs", output, file_size, total)
 
 
 if __name__ == "__main__":
