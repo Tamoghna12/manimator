@@ -6,6 +6,7 @@ Usage:
     python -m manimator.portrait.orchestrator -s crispr_reel.json
     python -m manimator.portrait.orchestrator -s crispr_reel.json --narrate --voice guy
     python -m manimator.portrait.orchestrator -s crispr_reel.json --format tiktok --narrate --post-copy
+    python -m manimator.portrait.orchestrator -s crispr_reel.json --narrate --music ambient
 """
 
 import argparse
@@ -48,8 +49,10 @@ Examples:
   %(prog)s -s topic.json --format tiktok --narrate     # TikTok + voiceover
   %(prog)s -s topic.json --narrate --post-copy          # Full pipeline
   %(prog)s -s topic.json --format instagram_square     # Square format
+  %(prog)s -s topic.json --narrate --music ambient     # With background music
 
 Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
+Music presets: ambient, corporate, cinematic (or path to MP3 file)
         """,
     )
     parser.add_argument("--storyboard", "-s", required=True, type=Path)
@@ -66,6 +69,10 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
     )
     parser.add_argument("--rate", default="-5%", help="Speech rate")
     parser.add_argument("--fps", type=int, default=30)
+    parser.add_argument(
+        "--music", default=None,
+        help="Background music preset (ambient/corporate/cinematic) or path to MP3",
+    )
 
     args = parser.parse_args()
     t_start = time.time()
@@ -80,11 +87,14 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
     theme_name = storyboard.meta.color_theme
     theme = THEMES.get(theme_name, THEMES["wong"])
 
+    # Music can come from CLI or storyboard meta
+    music = args.music or storyboard.meta.background_music
+
     log.info("%d scenes | theme=%s | format=%s (%dx%d)",
              len(storyboard.scenes), theme_name,
              fmt['name'], fmt['width'], fmt['height'])
 
-    # ── 2. Generate HTML scenes ──
+    # ── 2. Work directories ──
     work_dir = args.storyboard.parent / f".portrait_{args.storyboard.stem}"
     html_dir = work_dir / "html"
     video_dir = work_dir / "video"
@@ -92,12 +102,88 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
     video_dir.mkdir(parents=True, exist_ok=True)
 
     scene_data_list = []
-    for i, scene in enumerate(storyboard.scenes):
-        sd = scene.model_dump()
-        scene_data_list.append(sd)
-        scene_id = f"S{i:02d}_{sd['id']}"
+    for scene in storyboard.scenes:
+        scene_data_list.append(scene.model_dump())
 
-        html_content = render_scene_html(sd, theme)
+    # ── 3. Narration-first pipeline (when --narrate) ──
+    scene_timings = None
+    scene_audios = None
+
+    if args.narrate:
+        from manimator.narration import (
+            generate_narration_script, generate_narration_chunks,
+            synthesize_chunks, concatenate_audio_chunks,
+            compute_element_delays, synthesize_audio,
+            merge_audio_video, get_audio_duration, VOICES,
+        )
+        from manimator.timing import SceneTiming
+
+        voice = VOICES.get(args.voice, args.voice)
+        audio_dir = work_dir / "audio"
+        audio_dir.mkdir(exist_ok=True)
+
+        scene_timings = []
+        scene_audios = []
+
+        for i, sd in enumerate(scene_data_list):
+            scene_id = f"S{i:02d}_{sd['id']}"
+            script = generate_narration_script(sd)
+
+            if not script.strip():
+                scene_timings.append(None)
+                scene_audios.append(None)
+                continue
+
+            log.info('[%s] Generating narration chunks...', scene_id)
+
+            try:
+                chunks = generate_narration_chunks(sd)
+                chunk_results = synthesize_chunks(
+                    chunks, audio_dir, scene_id,
+                    voice=voice, rate=args.rate,
+                )
+                chunk_paths = [p for p, _ in chunk_results]
+                chunk_durations = [d for _, d in chunk_results]
+
+                # Compute element delays from chunk durations
+                delays = compute_element_delays(chunk_durations)
+
+                # Concatenate chunks into one audio file per scene
+                combined_audio = audio_dir / f"{scene_id}.mp3"
+                concatenate_audio_chunks(chunk_paths, combined_audio)
+
+                total_dur = sum(chunk_durations)
+                timing = SceneTiming(
+                    total_duration=total_dur + 0.5,
+                    element_delays=delays,
+                )
+                scene_timings.append(timing)
+                scene_audios.append(combined_audio)
+
+                log.info('[%s] %d chunks, %.1fs total', scene_id, len(chunks), total_dur)
+            except Exception as e:
+                log.error("[%s] Chunk narration failed, falling back to simple: %s", scene_id, e)
+                # Fallback: single-chunk synthesis
+                try:
+                    audio_path = audio_dir / f"{scene_id}.mp3"
+                    synthesize_audio(script, audio_path, voice=voice, rate=args.rate)
+                    dur = get_audio_duration(audio_path)
+                    timing = SceneTiming(total_duration=dur + 0.5)
+                    scene_timings.append(timing)
+                    scene_audios.append(audio_path)
+                except Exception as e2:
+                    log.error("[%s] TTS failed entirely: %s", scene_id, e2)
+                    scene_timings.append(None)
+                    scene_audios.append(None)
+
+        log.info("Narration synthesis complete")
+
+    # ── 4. Generate HTML scenes (with timing when available) ──
+    for i, sd in enumerate(scene_data_list):
+        scene_id = f"S{i:02d}_{sd['id']}"
+        timing = scene_timings[i] if scene_timings and i < len(scene_timings) else None
+
+        html_content = render_scene_html(sd, theme, timing=timing)
         if not html_content:
             log.info("[SKIP] Unknown scene type: %s", sd.get('type'))
             continue
@@ -107,51 +193,37 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
 
     log.info("Generated %d HTML scenes", len(list(html_dir.glob('*.html'))))
 
-    # ── 3. Capture videos ──
+    # ── 5. Capture videos (with timing-derived durations) ──
     t_render = time.time()
     video_files = render_all_scenes(
         html_dir, scene_data_list, video_dir,
         width=fmt["width"], height=fmt["height"], fps=args.fps,
+        scene_timings=scene_timings,
     )
     log.info("Captured in %.1fs", time.time() - t_render)
 
-    # ── 4. Narration ──
-    if args.narrate:
-        from manimator.narration import (
-            generate_narration_script, synthesize_audio,
-            merge_audio_video, VOICES,
-        )
-
-        voice = VOICES.get(args.voice, args.voice)
-        audio_dir = work_dir / "audio"
-        audio_dir.mkdir(exist_ok=True)
+    # ── 6. Merge audio + video (narration mode) ──
+    if args.narrate and scene_audios:
+        from manimator.narration import merge_audio_video
 
         narrated_files = []
-        for vf, scene in zip(video_files, storyboard.scenes):
-            sd = scene.model_dump()
-            script = generate_narration_script(sd)
-
-            if not script.strip():
+        for vf, audio in zip(video_files, scene_audios):
+            if audio is None or not audio.exists():
                 narrated_files.append(vf)
                 continue
 
-            scene_id = vf.stem
-            audio_path = audio_dir / f"{scene_id}.mp3"
-            log.info('[%s] "%s..."', scene_id, script[:50])
-
             try:
-                synthesize_audio(script, audio_path, voice=voice, rate=args.rate)
-                narrated = vf.parent / f"{scene_id}_narrated.webm"
-                merge_audio_video(vf, audio_path, narrated)
+                narrated = vf.parent / f"{vf.stem}_narrated.webm"
+                merge_audio_video(vf, audio, narrated)
                 narrated_files.append(narrated)
             except Exception as e:
-                log.error("[%s] TTS failed, using silent: %s", scene_id, e)
+                log.error("[%s] Audio merge failed, using silent: %s", vf.stem, e)
                 narrated_files.append(vf)
 
         video_files = narrated_files
-        log.info("Narration complete")
+        log.info("Audio merge complete")
 
-    # ── 5. Concatenate ──
+    # ── 7. Concatenate ──
     output = args.output
     if output is None:
         output = args.storyboard.parent / f"{args.storyboard.stem}_{args.format}.webm"
@@ -162,7 +234,23 @@ Formats: instagram_reel (default), instagram_square, youtube_short, tiktok
     )
     file_size = output.stat().st_size / (1024 * 1024)
 
-    # ── 6. Post copy ──
+    # ── 8. Background music ──
+    if music:
+        from manimator.music import add_background_music
+
+        music_output = output.parent / f"{output.stem}_music{output.suffix}"
+        try:
+            add_background_music(output, music, music_output)
+            # Replace original with music version
+            music_output.replace(output)
+            log.info("Background music applied: %s", music)
+        except Exception as e:
+            log.error("Background music failed: %s", e)
+            # Clean up partial output
+            if music_output.exists():
+                music_output.unlink()
+
+    # ── 9. Post copy ──
     if args.post_copy:
         from manimator.social import generate_post_copy
         post = generate_post_copy(raw, args.format)

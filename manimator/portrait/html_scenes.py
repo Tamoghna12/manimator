@@ -6,9 +6,15 @@ polish with gradient backgrounds, glassmorphism, smooth easing,
 animated accents, and proper mobile visual hierarchy.
 """
 
+from __future__ import annotations
+
 import html
 import math
 import random
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from manimator.timing import SceneTiming
 
 # ── Base CSS: shared across all scenes ────────────────────────────────────────
 
@@ -183,7 +189,7 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
 # HOOK SCENE — Bold, attention-grabbing opening
 # ══════════════════════════════════════════════════════════════════════════════
 
-def hook_scene(data: dict, theme: dict) -> str:
+def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     words = data["hook_text"].split()
     subtitle = data.get("subtitle", "")
@@ -245,7 +251,7 @@ def hook_scene(data: dict, theme: dict) -> str:
 # TITLE SCENE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def title_scene(data: dict, theme: dict) -> str:
+def title_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     title = _esc(data["title"])
     subtitle = _esc(data.get("subtitle", ""))
@@ -289,7 +295,7 @@ def title_scene(data: dict, theme: dict) -> str:
 # BULLET LIST — Staggered cards with left accent
 # ══════════════════════════════════════════════════════════════════════════════
 
-def bullet_list_scene(data: dict, theme: dict) -> str:
+def bullet_list_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     items = data["items"]
@@ -297,7 +303,8 @@ def bullet_list_scene(data: dict, theme: dict) -> str:
 
     items_html = ""
     for i, item in enumerate(items):
-        delay = 0.7 + i * 0.25
+        # timing.element_delays: [header, item_0, item_1, ..., callout]
+        delay = timing.element_delays[i + 1] if timing and timing.element_delays and i + 1 < len(timing.element_delays) else 0.7 + i * 0.25
         color = c["palette"][i % len(c["palette"])]
         items_html += f"""
         <div class="bullet-card anim-item"
@@ -307,7 +314,7 @@ def bullet_list_scene(data: dict, theme: dict) -> str:
             <div class="bullet-text">{_esc(item)}</div>
         </div>"""
 
-    callout_delay = 0.7 + len(items) * 0.25 + 0.4
+    callout_delay = (timing.element_delays[-1] if timing and timing.element_delays else 0.7 + len(items) * 0.25 + 0.4)
     callout_html = ""
     if callout:
         callout_html = f"""
@@ -317,13 +324,14 @@ def bullet_list_scene(data: dict, theme: dict) -> str:
             <div class="callout-text">{_esc(callout)}</div>
         </div>"""
 
+    header_delay = timing.header_delay if timing else 0.2
     css = f"""
     .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
               padding: 100px 60px; }}
     .bg-dots {{ opacity: 0.5; }}
     .header {{ font-size: 52px; font-weight: 800; color: {c['text_dark']};
                letter-spacing: -0.5px; line-height: 1.2;
-               opacity: 0; animation: fadeInUp 0.6s 0.2s forwards; }}
+               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
     .header-accent {{ height: 4px; width: 60px; border-radius: 2px; margin: 20px 0 50px;
         background: linear-gradient(90deg, {c['blue']}, {c['green']});
         transform-origin: left; opacity: 0;
@@ -365,7 +373,7 @@ def bullet_list_scene(data: dict, theme: dict) -> str:
 # FLOWCHART — Vertical numbered pipeline
 # ══════════════════════════════════════════════════════════════════════════════
 
-def flowchart_scene(data: dict, theme: dict) -> str:
+def flowchart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     stages = data["stages"]
@@ -373,7 +381,7 @@ def flowchart_scene(data: dict, theme: dict) -> str:
 
     stages_html = ""
     for i, stage in enumerate(stages):
-        delay = 0.5 + i * 0.35
+        delay = timing.element_delays[i + 1] if timing and timing.element_delays and i + 1 < len(timing.element_delays) else 0.5 + i * 0.35
         label = _esc(stage["label"].replace("\n", " "))
         color = c["palette"][i % len(c["palette"])]
         bg_fade = _hex_to_rgba(color, 0.06)
@@ -396,7 +404,7 @@ def flowchart_scene(data: dict, theme: dict) -> str:
                 <div class="connector-arrow" style="border-top-color: {c['palette'][(i+1) % len(c['palette'])]}"></div>
             </div>"""
 
-    callout_delay = 0.5 + len(stages) * 0.35 + 0.5
+    callout_delay = (timing.element_delays[-1] if timing and timing.element_delays else 0.5 + len(stages) * 0.35 + 0.5)
     callout_html = ""
     if callout:
         callout_html = f"""
@@ -405,12 +413,13 @@ def flowchart_scene(data: dict, theme: dict) -> str:
             <div class="callout-text">{_esc(callout)}</div>
         </div>"""
 
+    header_delay = timing.header_delay if timing else 0.15
     css = f"""
     .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
               padding: 90px 60px; align-items: center; }}
     .header {{ font-size: 52px; font-weight: 800; color: {c['text_dark']};
                text-align: center; letter-spacing: -0.5px;
-               opacity: 0; animation: fadeInUp 0.6s 0.15s forwards; }}
+               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
     .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px auto 40px;
         background: linear-gradient(90deg, {c['blue']}, {c['green']});
         opacity: 0; animation: scaleIn 0.4s 0.4s forwards; }}
@@ -452,7 +461,7 @@ def flowchart_scene(data: dict, theme: dict) -> str:
 # BAR CHART — Horizontal bars with animated fill
 # ══════════════════════════════════════════════════════════════════════════════
 
-def bar_chart_scene(data: dict, theme: dict) -> str:
+def bar_chart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     bars = data["bars"]
@@ -464,7 +473,7 @@ def bar_chart_scene(data: dict, theme: dict) -> str:
 
     bars_html = ""
     for i, bar in enumerate(bars):
-        delay = 0.6 + i * 0.3
+        delay = timing.element_delays[i + 1] if timing and timing.element_delays and i + 1 < len(timing.element_delays) else 0.6 + i * 0.3
         label = _esc(bar["label"].replace("\n", " "))
         pct = (bar["value"] / max_val) * bar_max_w
         color = c["palette"][i % len(c["palette"])]
@@ -485,7 +494,7 @@ def bar_chart_scene(data: dict, theme: dict) -> str:
             </div>
         </div>"""
 
-    callout_delay = 0.6 + len(bars) * 0.3 + 0.5
+    callout_delay = (timing.element_delays[-1] if timing and timing.element_delays else 0.6 + len(bars) * 0.3 + 0.5)
     callout_html = ""
     if callout:
         callout_html = f"""
@@ -495,12 +504,13 @@ def bar_chart_scene(data: dict, theme: dict) -> str:
             <div class="callout-text">{_esc(callout)}</div>
         </div>"""
 
+    header_delay = timing.header_delay if timing else 0.2
     css = f"""
     .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
               padding: 100px 60px; }}
     .header {{ font-size: 52px; font-weight: 800; color: {c['text_dark']};
                letter-spacing: -0.5px;
-               opacity: 0; animation: fadeInUp 0.6s 0.2s forwards; }}
+               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
     .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px 0 50px;
         background: linear-gradient(90deg, {c['blue']}, {c['orange']});
         transform-origin: left; opacity: 0;
@@ -544,7 +554,7 @@ def bar_chart_scene(data: dict, theme: dict) -> str:
 # TWO PANEL — Side-by-side comparison as stacked cards
 # ══════════════════════════════════════════════════════════════════════════════
 
-def two_panel_scene(data: dict, theme: dict) -> str:
+def two_panel_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     callout = data.get("callout", "")
@@ -617,7 +627,7 @@ def two_panel_scene(data: dict, theme: dict) -> str:
 # COMPARISON TABLE
 # ══════════════════════════════════════════════════════════════════════════════
 
-def comparison_table_scene(data: dict, theme: dict) -> str:
+def comparison_table_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     columns = data["columns"]
@@ -627,25 +637,26 @@ def comparison_table_scene(data: dict, theme: dict) -> str:
     th_cells = "".join(f"<th>{_esc(col)}</th>" for col in columns)
     tr_html = ""
     for i, row in enumerate(rows):
-        delay = 0.7 + i * 0.2
+        delay = timing.element_delays[i + 1] if timing and timing.element_delays and i + 1 < len(timing.element_delays) else 0.7 + i * 0.2
         cells = "".join(f"<td>{_esc(cell)}</td>" for cell in row)
         tr_html += f"""<tr class="anim-item"
             style="animation-name: fadeIn; animation-delay: {delay:.2f}s">{cells}</tr>"""
 
     callout_html = ""
     if callout:
-        cd = 0.7 + len(rows) * 0.2 + 0.4
+        cd = timing.element_delays[-1] if timing and timing.element_delays else 0.7 + len(rows) * 0.2 + 0.4
         callout_html = f"""
         <div class="callout-box anim-item"
              style="animation-name: fadeInUp; animation-delay: {cd:.2f}s">
             <div class="callout-text">{_esc(callout)}</div>
         </div>"""
 
+    header_delay = timing.header_delay if timing else 0.2
     css = f"""
     .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
               padding: 100px 45px; }}
     .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               opacity: 0; animation: fadeInUp 0.6s 0.2s forwards; }}
+               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
     .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px 0 40px;
         background: {c['blue']}; transform-origin: left; opacity: 0;
         animation: expandLine 0.4s 0.4s forwards; }}
@@ -681,7 +692,7 @@ def comparison_table_scene(data: dict, theme: dict) -> str:
 # SCATTER PLOT — SVG with animated dots
 # ══════════════════════════════════════════════════════════════════════════════
 
-def scatter_plot_scene(data: dict, theme: dict) -> str:
+def scatter_plot_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     clusters = data["clusters"]
@@ -699,7 +710,7 @@ def scatter_plot_scene(data: dict, theme: dict) -> str:
         n = cluster.get("n", 20)
         spread = cluster.get("spread", 0.4)
         color = c["palette"][ci % len(c["palette"])]
-        db = 0.6 + ci * 0.25
+        db = timing.element_delays[ci + 1] if timing and timing.element_delays and ci + 1 < len(timing.element_delays) else 0.6 + ci * 0.25
 
         for j in range(n):
             x = cx + rng.gauss(0, spread)
@@ -722,18 +733,19 @@ def scatter_plot_scene(data: dict, theme: dict) -> str:
 
     callout_html = ""
     if callout:
-        cd = 0.6 + len(clusters) * 0.25 + 0.5
+        cd = timing.element_delays[-1] if timing and timing.element_delays else 0.6 + len(clusters) * 0.25 + 0.5
         callout_html = f"""
         <div class="callout-box anim-item"
              style="animation-name: fadeInUp; animation-delay: {cd:.2f}s">
             <div class="callout-text">{_esc(callout)}</div>
         </div>"""
 
+    header_delay = timing.header_delay if timing else 0.15
     css = f"""
     .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
               padding: 80px 50px; align-items: center; }}
     .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               text-align: center; opacity: 0; animation: fadeInUp 0.6s 0.15s forwards; }}
+               text-align: center; opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
     .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 16px auto 30px;
         background: {c['blue']}; opacity: 0; animation: scaleIn 0.4s 0.4s forwards; }}
     .plot-box {{ background: {c['bg_card']}; border-radius: 20px; padding: 20px;
@@ -776,7 +788,7 @@ def scatter_plot_scene(data: dict, theme: dict) -> str:
 # EQUATION
 # ══════════════════════════════════════════════════════════════════════════════
 
-def equation_scene(data: dict, theme: dict) -> str:
+def equation_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     latex = data["latex"]
@@ -827,7 +839,7 @@ def equation_scene(data: dict, theme: dict) -> str:
 # PIPELINE DIAGRAM
 # ══════════════════════════════════════════════════════════════════════════════
 
-def pipeline_diagram_scene(data: dict, theme: dict) -> str:
+def pipeline_diagram_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     header = _esc(data["header"])
     left = data["left_track"]
@@ -914,7 +926,7 @@ def pipeline_diagram_scene(data: dict, theme: dict) -> str:
 # CLOSING — Dark, cinematic end card
 # ══════════════════════════════════════════════════════════════════════════════
 
-def closing_scene(data: dict, theme: dict) -> str:
+def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
     c = _tc(theme)
     title = _esc(data.get("title", "Key References"))
     refs = data.get("references", [])
@@ -990,9 +1002,14 @@ SCENE_RENDERERS = {
 }
 
 
-def render_scene_html(scene_data: dict, theme: dict) -> str:
-    """Render a scene to a production-quality HTML string."""
+def render_scene_html(scene_data: dict, theme: dict,
+                      timing: SceneTiming | None = None) -> str:
+    """Render a scene to a production-quality HTML string.
+
+    When *timing* is provided, element animation delays are driven by
+    narration chunk durations instead of hardcoded CSS values.
+    """
     renderer = SCENE_RENDERERS.get(scene_data.get("type", ""))
     if renderer is None:
         return ""
-    return renderer(scene_data, theme)
+    return renderer(scene_data, theme, timing=timing)

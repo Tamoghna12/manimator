@@ -50,6 +50,7 @@ WORK_DIR.mkdir(exist_ok=True)
 ALLOWED_FORMATS = {"instagram_reel", "tiktok", "youtube_short", "instagram_square",
                    "linkedin", "linkedin_square", "presentation"}
 ALLOWED_VOICES = {"aria", "guy", "jenny", "davis", "andrew", "emma"}
+ALLOWED_MUSIC = {"", "none", "ambient", "corporate", "cinematic"}
 
 
 def _sanitize_text(text: str, max_len: int = 500) -> str:
@@ -199,15 +200,18 @@ def api_render():
     fmt = data.get("format", "instagram_reel")
     narrate = bool(data.get("narrate", False))
     voice = data.get("voice", "aria")
+    music = data.get("music", "")
 
     if not storyboard:
         return jsonify({"error": "No storyboard provided"}), 400
 
-    # Validate format and voice against allow-lists
+    # Validate format, voice, and music against allow-lists
     if fmt not in ALLOWED_FORMATS:
         return jsonify({"error": f"Invalid format: {fmt}"}), 400
     if voice not in ALLOWED_VOICES:
         return jsonify({"error": f"Invalid voice: {voice}"}), 400
+    if music not in ALLOWED_MUSIC:
+        return jsonify({"error": f"Invalid music preset: {music}"}), 400
 
     # Check concurrent job limit
     running = sum(1 for j in JOBS.values() if j["status"] == "running")
@@ -246,8 +250,10 @@ def api_render():
                 cmd.extend(["-q", "low"])
             if narrate:
                 cmd.extend(["--narrate", "--voice", voice])
+            if music and music not in ("", "none"):
+                cmd.extend(["--music", music])
 
-            log.info("Render started: job=%s format=%s narrate=%s", job_id, fmt, narrate)
+            log.info("Render started: job=%s format=%s narrate=%s music=%s", job_id, fmt, narrate, music)
             result = subprocess.run(
                 cmd, capture_output=True, text=True,
                 cwd=str(Path.cwd()), timeout=600,  # 10 min timeout
@@ -1396,6 +1402,18 @@ textarea {
                     </select>
                 </div>
             </div>
+            <div class="settings-section">
+                <h4>Background Music</h4>
+                <div class="form-group">
+                    <label class="form-label">Music Preset</label>
+                    <select id="metaMusic">
+                        <option value="none">None</option>
+                        <option value="ambient">Ambient (soft, science explainers)</option>
+                        <option value="corporate">Corporate (upbeat, product demos)</option>
+                        <option value="cinematic">Cinematic (dramatic, high-impact)</option>
+                    </select>
+                </div>
+            </div>
         </div>
 
         <!-- ════ Guide Tab ════ -->
@@ -1996,6 +2014,7 @@ async function startRender() {
             format: storyboard.meta?.format || 'instagram_reel',
             narrate: document.getElementById('cbNarrate').checked,
             voice: document.getElementById('metaVoice').value,
+            music: document.getElementById('metaMusic').value,
         })
     });
     const data = await resp.json();

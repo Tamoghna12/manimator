@@ -6,22 +6,74 @@ them into video with ffmpeg at controlled bitrate and framerate.
 Scene transitions (crossfade) are added at the ffmpeg level.
 """
 
+from __future__ import annotations
+
 import logging
 import subprocess
 import tempfile
 import shutil
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 log = logging.getLogger(__name__)
 
 from playwright.sync_api import sync_playwright
 
+if TYPE_CHECKING:
+    from manimator.timing import SceneTiming
+
 
 # ── Duration estimation ───────────────────────────────────────────────────────
 
-def _get_scene_duration(scene_data: dict) -> float:
-    """Estimate CSS animation duration for a scene type."""
+def _get_minimum_animation_time(scene_data: dict) -> float:
+    """Return the shortest time needed for all CSS animations to complete."""
+    stype = scene_data.get("type", "")
+
+    if stype == "hook":
+        n_words = len(scene_data.get("hook_text", "").split())
+        return 0.4 + n_words * 0.1 + 0.6
+    elif stype == "title":
+        return 2.0
+    elif stype == "bullet_list":
+        n = len(scene_data.get("items", []))
+        return 0.7 + n * 0.25 + 0.6
+    elif stype == "flowchart":
+        n = len(scene_data.get("stages", []))
+        return 0.5 + n * 0.35 + 0.6
+    elif stype == "bar_chart":
+        n = len(scene_data.get("bars", []))
+        return 0.6 + n * 0.3 + 1.0 + 0.6
+    elif stype == "two_panel":
+        return 2.5
+    elif stype == "comparison_table":
+        n = len(scene_data.get("rows", []))
+        return 0.7 + n * 0.2 + 0.6
+    elif stype == "scatter_plot":
+        n = len(scene_data.get("clusters", []))
+        return 0.6 + n * 0.25 + 0.6
+    elif stype == "equation":
+        return 2.5
+    elif stype == "pipeline_diagram":
+        return 3.0
+    elif stype == "closing":
+        n = len(scene_data.get("references", []))
+        return 0.9 + n * 0.2 + 0.6
+    return 2.0
+
+
+def _get_scene_duration(scene_data: dict,
+                        audio_duration: float | None = None) -> float:
+    """Estimate CSS animation duration for a scene type.
+
+    When *audio_duration* is provided (narration-sync mode), the duration
+    is ``max(audio_duration + 0.5, minimum_animation_time)`` so the video
+    is long enough for both the narration and the CSS animations.
+    """
+    if audio_duration is not None:
+        min_anim = _get_minimum_animation_time(scene_data)
+        return max(audio_duration + 0.5, min_anim)
+
     stype = scene_data.get("type", "")
 
     if stype == "hook":
@@ -164,16 +216,26 @@ def capture_scene(html_path: Path, output_path: Path,
 
 def render_all_scenes(html_dir: Path, scene_data_list: list,
                       output_dir: Path, width: int = 1080,
-                      height: int = 1920, fps: int = 30) -> list[Path]:
-    """Render all HTML scenes to video files."""
+                      height: int = 1920, fps: int = 30,
+                      scene_timings: list[SceneTiming | None] | None = None,
+                      ) -> list[Path]:
+    """Render all HTML scenes to video files.
+
+    When *scene_timings* is provided, each scene's duration is derived
+    from the narration audio length instead of being estimated from
+    CSS animation formulas.
+    """
     output_dir.mkdir(parents=True, exist_ok=True)
     html_files = sorted(html_dir.glob("S*.html"))
     results = []
 
-    for html_file, scene_data in zip(html_files, scene_data_list):
+    for idx, (html_file, scene_data) in enumerate(zip(html_files, scene_data_list)):
         stem = html_file.stem
         out_path = output_dir / f"{stem}.webm"
-        duration = _get_scene_duration(scene_data)
+
+        timing = scene_timings[idx] if scene_timings and idx < len(scene_timings) else None
+        audio_dur = timing.total_duration - 0.5 if timing else None
+        duration = _get_scene_duration(scene_data, audio_duration=audio_dur)
 
         log.info("Rendering %s (%.1fs, %d frames)...", stem, duration, int(duration*fps))
         capture_scene(html_file, out_path, duration, width, height, fps)

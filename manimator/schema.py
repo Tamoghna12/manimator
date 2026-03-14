@@ -14,6 +14,7 @@ class Meta(BaseModel):
     color_theme: str = "wong"
     format: str = "presentation"  # presentation, instagram_reel, linkedin, etc.
     pacing: str = ""              # auto, fast, medium, slow (empty = auto from format)
+    background_music: Optional[str] = None  # preset name or file path
 
 
 # ── Scene types ─────────────────────────────────────────────────────────────
@@ -23,6 +24,7 @@ class HookScene(BaseModel):
     id: str
     hook_text: str
     subtitle: str = ""
+    narration_text: Optional[str] = None
 
 
 class TitleScene(BaseModel):
@@ -31,6 +33,7 @@ class TitleScene(BaseModel):
     title: str
     subtitle: str = ""
     footnote: str = ""
+    narration_text: Optional[str] = None
 
 
 class BulletListScene(BaseModel):
@@ -39,6 +42,7 @@ class BulletListScene(BaseModel):
     header: str
     items: list[str]
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class TwoPanelScene(BaseModel):
@@ -50,6 +54,7 @@ class TwoPanelScene(BaseModel):
     right_title: str
     right_items: list[str]
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class ComparisonTableScene(BaseModel):
@@ -60,6 +65,7 @@ class ComparisonTableScene(BaseModel):
     rows: list[list[str]]
     col_widths: Optional[list[float]] = None
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class FlowchartStage(BaseModel):
@@ -81,6 +87,7 @@ class FlowchartScene(BaseModel):
     stages: list[FlowchartStage]
     recycle: Optional[RecycleConfig] = None
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class BarData(BaseModel):
@@ -96,6 +103,7 @@ class BarChartScene(BaseModel):
     bars: list[BarData]
     value_suffix: str = ""
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class ClusterData(BaseModel):
@@ -113,6 +121,7 @@ class ScatterPlotScene(BaseModel):
     clusters: list[ClusterData]
     axes: list[str] = Field(min_length=2, max_length=2)
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class TrackConfig(BaseModel):
@@ -135,6 +144,7 @@ class PipelineDiagramScene(BaseModel):
     right_track: TrackConfig
     center_block: CenterBlockConfig
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class EquationScene(BaseModel):
@@ -144,6 +154,7 @@ class EquationScene(BaseModel):
     latex: str
     explanation: str = ""
     callout: str = ""
+    narration_text: Optional[str] = None
 
 
 class ClosingScene(BaseModel):
@@ -151,6 +162,7 @@ class ClosingScene(BaseModel):
     id: str
     title: str = "Key References"
     references: list[str] = []
+    narration_text: Optional[str] = None
 
 
 # ── Discriminated union ─────────────────────────────────────────────────────
