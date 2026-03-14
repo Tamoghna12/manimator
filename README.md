@@ -31,6 +31,21 @@ mkdir -p ~/.local/share/fonts
 fc-cache -fv
 ```
 
+### Docker (recommended)
+
+```bash
+# Build and run
+docker compose up --build
+
+# Or without compose
+docker build -t manimator .
+docker run -p 5100:5100 -v ./output:/app/manimator_output manimator
+
+# Render a video via CLI
+docker run -v ./output:/app/manimator_output -v ./my_storyboard.json:/app/input.json \
+    manimator manimator.portrait -s /app/input.json --narrate -o /app/manimator_output/out.webm
+```
+
 ## Quick start
 
 ### Web UI
