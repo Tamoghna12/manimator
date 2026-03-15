@@ -2669,7 +2669,10 @@ async function generateWithAI() {
         if (resp.ok && data.scenes) {
             storyboard = data;
             syncUI();
-            toast('Storyboard generated with AI!', 'success');
+            // Switch to Scenes tab so the user can immediately see the result
+            const scenesTab = [...document.querySelectorAll('.tab')].find(t => t.textContent.trim() === 'Scenes');
+            if (scenesTab) switchTab(scenesTab, 'scenes');
+            toast('Storyboard generated! ' + data.scenes.length + ' scenes ready.', 'success');
         } else if (resp.ok && !data.scenes) {
             console.error('Generate returned 200 but no scenes:', data);
             toast(`AI returned unexpected response — check browser console`, 'error');
