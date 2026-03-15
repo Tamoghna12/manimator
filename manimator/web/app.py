@@ -249,6 +249,29 @@ def api_providers():
     return jsonify(providers)
 
 
+@app.route("/api/ollama/models", methods=["GET"])
+def api_ollama_models():
+    """Fetch locally installed Ollama models from the Ollama API."""
+    import urllib.request
+    import urllib.error
+
+    base_url = request.args.get("base_url", "http://localhost:11434").rstrip("/")
+    # Normalise: strip /v1 suffix if present — tags endpoint is on the base port
+    if base_url.endswith("/v1"):
+        base_url = base_url[:-3]
+
+    try:
+        url = f"{base_url}/api/tags"
+        with urllib.request.urlopen(url, timeout=3) as resp:
+            data = json.loads(resp.read())
+        models = [m["name"] for m in data.get("models", [])]
+        return jsonify({"models": models})
+    except urllib.error.URLError:
+        return jsonify({"models": [], "error": "Ollama not reachable"}), 200
+    except Exception as e:
+        return jsonify({"models": [], "error": str(e)}), 200
+
+
 @app.route("/api/render", methods=["POST"])
 def api_render():
     """Start a render job (runs in bounded thread pool)."""
@@ -1724,7 +1747,10 @@ textarea {
                 </div>
                 <div class="form-group" id="aiBaseUrlGroup" style="display:none">
                     <label class="form-label">Base URL</label>
-                    <input type="text" id="aiBaseUrl" placeholder="http://localhost:11434/v1" />
+                    <div style="display:flex;gap:6px">
+                        <input type="text" id="aiBaseUrl" placeholder="http://localhost:11434/v1" style="flex:1" />
+                        <button onclick="populateOllamaModels()" title="Detect installed models" style="padding:0 10px;font-size:13px;cursor:pointer">↺</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2509,34 +2535,56 @@ function onProviderChange() {
         baseUrlGroup.style.display = '';
         if (!baseUrlInput.value) baseUrlInput.value = 'http://localhost:11434/v1';
         apiKeyGroup.style.display = 'none';
+        populateOllamaModels();
     } else if (provider === 'openai_compatible') {
         baseUrlGroup.style.display = '';
         apiKeyGroup.style.display = '';
+        modelSelect.innerHTML = '<option value="">(enter model name)</option>';
     } else {
         baseUrlGroup.style.display = 'none';
         apiKeyGroup.style.display = '';
-    }
-
-    // Populate model dropdown
-    modelSelect.innerHTML = '';
-    const info = aiProviders[provider];
-    if (info && info.models.length > 0) {
-        for (const m of info.models) {
-            const opt = document.createElement('option');
-            opt.value = m;
-            opt.textContent = m;
-            if (m === info.default) opt.selected = true;
-            modelSelect.appendChild(opt);
+        modelSelect.innerHTML = '';
+        const info = aiProviders[provider];
+        if (info && info.models.length > 0) {
+            for (const m of info.models) {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                if (m === info.default) opt.selected = true;
+                modelSelect.appendChild(opt);
+            }
         }
-    } else if (provider === 'openai_compatible' || provider === 'ollama') {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = '(enter model name)';
-        modelSelect.appendChild(opt);
     }
 
     // Restore saved API key for this provider
     restoreApiKey();
+}
+
+async function populateOllamaModels() {
+    const modelSelect = document.getElementById('aiModel');
+    const baseUrl = document.getElementById('aiBaseUrl').value || 'http://localhost:11434/v1';
+
+    modelSelect.innerHTML = '<option value="" disabled>Detecting models...</option>';
+
+    try {
+        const resp = await fetch(`/api/ollama/models?base_url=${encodeURIComponent(baseUrl)}`);
+        const data = await resp.json();
+
+        modelSelect.innerHTML = '';
+        if (data.models && data.models.length > 0) {
+            for (const m of data.models) {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                modelSelect.appendChild(opt);
+            }
+        } else {
+            modelSelect.innerHTML = '<option value="">(no models found — run: ollama pull llama3.2)</option>';
+            if (data.error) toast('Ollama: ' + data.error, 'error');
+        }
+    } catch (e) {
+        modelSelect.innerHTML = '<option value="">(could not reach Ollama)</option>';
+    }
 }
 
 function saveApiKey() {
