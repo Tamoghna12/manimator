@@ -338,11 +338,14 @@ def api_render():
     JOBS[job_id] = {"status": "running", "started": time.time(), "output": None, "log": ""}
 
     def run_render():
+        import threading
+        import os as _os
+
         try:
             is_portrait = fmt in ("instagram_reel", "tiktok", "youtube_short", "instagram_square")
             module = "manimator.portrait" if is_portrait else "manimator.orchestrator"
             cmd = [
-                "python", "-m", module,
+                "python", "-u", "-m", module,   # -u = unbuffered output
                 "-s", str(json_path),
                 "-o", str(output_path),
             ]
@@ -355,24 +358,39 @@ def api_render():
             if music and music not in ("", "none"):
                 cmd.extend(["--music", music])
 
+            env = {**_os.environ, "PYTHONUNBUFFERED": "1"}
             log.info("Render cmd: %s", " ".join(cmd))
+
             proc = subprocess.Popen(
-                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, cwd=str(Path.cwd()),
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=str(Path.cwd()),
+                env=env,
             )
 
+            # Read stdout in a background thread so it never blocks the timeout
             lines = []
-            for line in proc.stdout:
-                line = line.rstrip()
-                lines.append(line)
-                JOBS[job_id]["log"] = "\n".join(lines[-100:])  # keep last 100 lines
-                log.debug("Render[%s]: %s", job_id, line)
-                elapsed = time.time() - JOBS[job_id]["started"]
-                if elapsed > 600:
-                    proc.kill()
-                    raise subprocess.TimeoutExpired(cmd, 600)
+            def _read():
+                for line in proc.stdout:
+                    line = line.rstrip()
+                    if line:
+                        lines.append(line)
+                        JOBS[job_id]["log"] = "\n".join(lines[-100:])
+                        log.info("Render[%s]: %s", job_id, line)
 
-            proc.wait()
+            reader = threading.Thread(target=_read, daemon=True)
+            reader.start()
+
+            try:
+                proc.wait(timeout=600)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                reader.join(timeout=2)
+                raise
+
+            reader.join(timeout=5)
 
             if proc.returncode == 0 and output_path.exists():
                 JOBS[job_id]["status"] = "done"
@@ -382,12 +400,13 @@ def api_render():
             else:
                 JOBS[job_id]["status"] = "failed"
                 last_lines = "\n".join(lines[-30:])
-                JOBS[job_id]["error"] = last_lines or "Unknown error"
-                log.error("Render failed: job=%s returncode=%d\n%s", job_id, proc.returncode, last_lines)
+                JOBS[job_id]["error"] = last_lines or f"Process exited with code {proc.returncode}"
+                log.error("Render failed: job=%s rc=%d\n%s", job_id, proc.returncode, last_lines)
         except subprocess.TimeoutExpired:
             JOBS[job_id]["status"] = "failed"
-            JOBS[job_id]["error"] = "Render timed out after 10 minutes"
-            log.error("Render timeout: job=%s", job_id)
+            last_lines = "\n".join(lines[-10:]) if lines else "(no output)"
+            JOBS[job_id]["error"] = f"Render timed out. Last output:\n{last_lines}"
+            log.error("Render timeout: job=%s last_output=%s", job_id, last_lines)
         except Exception as e:
             JOBS[job_id]["status"] = "failed"
             JOBS[job_id]["error"] = str(e)[:500]
