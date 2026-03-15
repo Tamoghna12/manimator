@@ -192,6 +192,63 @@ def api_prompt():
     return jsonify({"prompt": prompt})
 
 
+@app.route("/api/generate", methods=["POST"])
+def api_generate():
+    """Generate a storyboard using an LLM provider.
+
+    Accepts topic, provider, model, api_key, and optional domain/structure/format/theme.
+    API key is passed per-request from the browser and never logged or persisted.
+    """
+    data = request.json
+    topic = data.get("topic", "").strip()
+    provider = data.get("provider", "openai")
+    model = data.get("model") or None
+    api_key = data.get("api_key", "").strip()
+    domain = data.get("domain") or None
+    structure = data.get("structure", "explainer")
+    fmt = data.get("format", "presentation")
+    theme = data.get("theme", "wong")
+    base_url = data.get("base_url", "").strip()
+
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+    if not api_key:
+        return jsonify({"error": "API key is required"}), 400
+
+    try:
+        from manimator.llm import generate_storyboard
+        result = generate_storyboard(
+            topic=topic,
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            domain=domain,
+            structure=structure,
+            format_type=fmt,
+            theme=theme,
+            base_url=base_url,
+        )
+        return jsonify(result)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        log.exception("LLM generation failed")
+        return jsonify({"error": f"Generation failed: {str(e)[:300]}"}), 500
+
+
+@app.route("/api/providers", methods=["GET"])
+def api_providers():
+    """Return available LLM providers and their models."""
+    from manimator.llm import list_providers, PROVIDERS
+    providers = {}
+    for name, models in list_providers().items():
+        providers[name] = {
+            "models": models,
+            "default": PROVIDERS[name]["default"],
+        }
+    return jsonify(providers)
+
+
 @app.route("/api/render", methods=["POST"])
 def api_render():
     """Start a render job (runs in bounded thread pool)."""
@@ -307,6 +364,180 @@ def api_download(job_id):
         return jsonify({"error": "File not found"}), 404
     return send_file(output, mimetype="video/webm", as_attachment=True,
                      download_name=f"manimator_{job_id}.webm")
+
+
+# ── Upload Routes ─────────────────────────────────────────────────────────────
+
+
+@app.route("/api/upload", methods=["POST"])
+def api_upload():
+    """Upload a completed render to YouTube."""
+    data = request.json
+    job_id = data.get("job_id", "")
+    privacy = data.get("privacy", "private")
+
+    if not re.match(r'^[a-f0-9]{8}$', job_id):
+        return jsonify({"error": "Invalid job ID"}), 400
+    if privacy not in ("private", "unlisted", "public"):
+        return jsonify({"error": "Invalid privacy setting"}), 400
+
+    job = JOBS.get(job_id)
+    if not job or job["status"] != "done":
+        return jsonify({"error": "No completed render for this job"}), 404
+
+    output = Path(job["output"])
+    if not output.exists():
+        return jsonify({"error": "Render file not found"}), 404
+
+    # Load storyboard from the job's JSON file
+    json_path = WORK_DIR / f"{job_id}.json"
+    if not json_path.exists():
+        return jsonify({"error": "Storyboard JSON not found for job"}), 404
+
+    try:
+        with open(json_path) as f:
+            storyboard_data = json.load(f)
+
+        from manimator.uploader import upload_short
+        result = upload_short(
+            video_path=str(output),
+            storyboard_data=storyboard_data,
+            privacy=privacy,
+        )
+        return jsonify(result)
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        log.exception("Upload failed: job=%s", job_id)
+        return jsonify({"error": f"Upload failed: {str(e)[:300]}"}), 500
+
+
+# ── Pipeline Routes ───────────────────────────────────────────────────────────
+
+_pipeline_instance = None
+
+
+def _get_pipeline():
+    global _pipeline_instance
+    if _pipeline_instance is None:
+        from manimator.pipeline import Pipeline
+        _pipeline_instance = Pipeline()
+    return _pipeline_instance
+
+
+@app.route("/api/pipeline/status", methods=["GET"])
+def api_pipeline_status():
+    """Return pipeline status counts."""
+    pipe = _get_pipeline()
+    return jsonify(pipe.get_status())
+
+
+@app.route("/api/pipeline/videos", methods=["GET"])
+def api_pipeline_videos():
+    """List pipeline videos with optional status filter."""
+    pipe = _get_pipeline()
+    status = request.args.get("status")
+    limit = min(int(request.args.get("limit", 20)), 100)
+    videos = pipe.list_videos(status=status, limit=limit)
+    return jsonify(videos)
+
+
+@app.route("/api/pipeline/add-topics", methods=["POST"])
+def api_pipeline_add_topics():
+    """Add topics to the pipeline queue."""
+    data = request.json
+    topics = data.get("topics", [])
+    if not topics:
+        return jsonify({"error": "No topics provided"}), 400
+    if not all(isinstance(t, dict) and "topic" in t for t in topics):
+        return jsonify({"error": "Each topic must be a dict with a 'topic' key"}), 400
+
+    pipe = _get_pipeline()
+    ids = pipe.add_topics(topics)
+    return jsonify({"added": len(ids), "ids": ids})
+
+
+@app.route("/api/pipeline/run", methods=["POST"])
+def api_pipeline_run():
+    """Trigger a pipeline run (executes in thread pool)."""
+    data = request.json or {}
+    provider = data.get("provider", "openai")
+    model = data.get("model")
+    api_key = data.get("api_key", "").strip()
+    limit = min(int(data.get("limit", 5)), 20)
+    upload = bool(data.get("upload", False))
+    privacy = data.get("privacy", "private")
+    narrate = bool(data.get("narrate", False))
+    voice = data.get("voice", "aria")
+    music = data.get("music", "")
+
+    if not api_key:
+        return jsonify({"error": "API key is required"}), 400
+
+    run_id = str(uuid.uuid4())[:8]
+
+    def _run():
+        pipe = _get_pipeline()
+        try:
+            results = pipe.run_pipeline(
+                provider=provider, model=model, api_key=api_key,
+                limit=limit, upload=upload, privacy=privacy,
+                narrate=narrate, voice=voice, music=music,
+            )
+            log.info("Pipeline run %s complete: %d results", run_id, len(results))
+        except Exception as e:
+            log.exception("Pipeline run %s failed", run_id)
+
+    _render_pool.submit(_run)
+    return jsonify({"run_id": run_id, "status": "started", "limit": limit})
+
+
+# ── Analytics Routes ──────────────────────────────────────────────────────────
+
+_analytics_instance = None
+
+
+def _get_analytics():
+    global _analytics_instance
+    if _analytics_instance is None:
+        from manimator.analytics import Analytics
+        _analytics_instance = Analytics()
+    return _analytics_instance
+
+
+@app.route("/api/analytics/summary", methods=["GET"])
+def api_analytics_summary():
+    """Return analytics insights summary."""
+    analytics = _get_analytics()
+    return jsonify(analytics.get_insights())
+
+
+@app.route("/api/analytics/top", methods=["GET"])
+def api_analytics_top():
+    """Return top-performing videos."""
+    analytics = _get_analytics()
+    metric = request.args.get("metric", "views")
+    limit = min(int(request.args.get("limit", 10)), 50)
+    days = int(request.args.get("days", 30))
+    try:
+        top = analytics.get_top_videos(metric=metric, limit=limit, days=days)
+        return jsonify(top)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route("/api/analytics/sync", methods=["POST"])
+def api_analytics_sync():
+    """Trigger a metrics sync from YouTube Analytics."""
+    data = request.json or {}
+    days = int(data.get("days", 7))
+    analytics = _get_analytics()
+    try:
+        count = analytics.sync_metrics(days=days)
+        return jsonify({"synced": count})
+    except Exception as e:
+        log.exception("Analytics sync failed")
+        return jsonify({"error": f"Sync failed: {str(e)[:300]}"}), 500
 
 
 # ── HTML Template ─────────────────────────────────────────────────────────────
@@ -1306,6 +1537,9 @@ textarea {
                         <button class="btn btn-primary" onclick="scaffoldFromTopic()" style="flex:1">Generate Scaffold</button>
                         <button class="btn" onclick="showPromptModal()" title="Generate an LLM prompt to create storyboard JSON">LLM Prompt</button>
                     </div>
+                    <div style="margin-top:8px">
+                        <button class="btn btn-primary" onclick="generateWithAI()" style="width:100%;background:var(--purple);border-color:var(--purple)" title="Generate a complete storyboard using AI">Generate with AI</button>
+                    </div>
                 </div>
             </div>
 
@@ -1412,6 +1646,32 @@ textarea {
                         <option value="corporate">Corporate (upbeat, product demos)</option>
                         <option value="cinematic">Cinematic (dramatic, high-impact)</option>
                     </select>
+                </div>
+            </div>
+            <div class="settings-section">
+                <h4>AI Generation</h4>
+                <div class="form-group">
+                    <label class="form-label">Provider</label>
+                    <select id="aiProvider" onchange="onProviderChange()">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                        <option value="google">Google Gemini</option>
+                        <option value="zhipuai">ZhipuAI</option>
+                        <option value="openai_compatible">OpenAI-Compatible</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Model</label>
+                    <select id="aiModel"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">API Key</label>
+                    <input type="password" id="aiApiKey" placeholder="sk-..." onchange="saveApiKey()" />
+                    <span style="font-size:10px;color:var(--text-muted);margin-top:4px;display:block">Stored in browser localStorage only. Never sent to our server.</span>
+                </div>
+                <div class="form-group" id="aiBaseUrlGroup" style="display:none">
+                    <label class="form-label">Base URL</label>
+                    <input type="text" id="aiBaseUrl" placeholder="http://localhost:11434/v1" />
                 </div>
             </div>
         </div>
@@ -1605,6 +1865,37 @@ textarea {
         </div>
     </div>
 </div>
+
+<!-- Pipeline & Analytics Panels (collapsible bottom bar) -->
+<div style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-raised);border-top:1px solid var(--border);z-index:100;max-height:40vh;overflow:auto" id="bottomPanel">
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
+        <button class="btn btn-sm" onclick="toggleBottom('pipeline')" style="border-radius:0;border:none;border-right:1px solid var(--border)">Pipeline</button>
+        <button class="btn btn-sm" onclick="toggleBottom('analytics')" style="border-radius:0;border:none;border-right:1px solid var(--border)">Analytics</button>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" onclick="document.getElementById('bottomPanel').style.display='none'" style="border-radius:0;border:none">Close</button>
+    </div>
+    <div id="panelPipeline" style="display:none;padding:16px">
+        <h3 style="margin-bottom:12px;font-size:14px">Pipeline Status</h3>
+        <div id="pipelineStatus" style="margin-bottom:12px;font-size:13px"><em>Loading...</em></div>
+        <h3 style="margin-bottom:8px;font-size:14px">Videos</h3>
+        <div id="pipelineVideos" style="font-size:13px"><em>Loading...</em></div>
+    </div>
+    <div id="panelAnalytics" style="display:none;padding:16px">
+        <h3 style="margin-bottom:12px;font-size:14px">Analytics Summary</h3>
+        <div id="analyticsSummary"><em>Loading...</em></div>
+    </div>
+</div>
+<script>
+document.getElementById('bottomPanel').style.display = 'none';
+function toggleBottom(panel) {
+    const bp = document.getElementById('bottomPanel');
+    bp.style.display = 'block';
+    document.getElementById('panelPipeline').style.display = panel === 'pipeline' ? 'block' : 'none';
+    document.getElementById('panelAnalytics').style.display = panel === 'analytics' ? 'block' : 'none';
+    if (panel === 'pipeline') { loadPipelineStatus(); loadPipelineVideos(); }
+    if (panel === 'analytics') { loadAnalyticsSummary(); }
+}
+</script>
 
 <!-- LLM Prompt Modal -->
 <div class="modal-overlay" id="promptModal">
@@ -2048,6 +2339,16 @@ async function pollJob() {
         dl.textContent = 'Download Video';
         status.after(dl);
 
+        // Add Upload button next to Download
+        const existingUpload = document.querySelector('.render-panel .btn-upload');
+        if (existingUpload) existingUpload.remove();
+        const ul = document.createElement('button');
+        ul.className = 'btn btn-upload';
+        ul.style.cssText = 'display:inline-block;margin-top:6px;width:100%;background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple)';
+        ul.textContent = 'Upload to YouTube';
+        ul.onclick = () => uploadToYouTube(currentJobId);
+        dl.after(ul);
+
         toast('Render complete!', 'success');
     } else {
         status.textContent = `Failed: ${job.error || 'Unknown error'}`;
@@ -2127,6 +2428,189 @@ function closeModal(id) {
 document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('show'); });
 });
+
+// ── AI Generation ──
+let aiProviders = {};
+
+async function loadAIProviders() {
+    try {
+        const resp = await fetch('/api/providers');
+        aiProviders = await resp.json();
+        onProviderChange();
+        restoreApiKey();
+    } catch(e) {
+        // AI providers not available — SDK not installed
+        console.log('AI providers not loaded:', e);
+    }
+}
+
+function onProviderChange() {
+    const provider = document.getElementById('aiProvider').value;
+    const modelSelect = document.getElementById('aiModel');
+    const baseUrlGroup = document.getElementById('aiBaseUrlGroup');
+
+    // Show/hide base URL field
+    baseUrlGroup.style.display = provider === 'openai_compatible' ? '' : 'none';
+
+    // Populate model dropdown
+    modelSelect.innerHTML = '';
+    const info = aiProviders[provider];
+    if (info && info.models.length > 0) {
+        for (const m of info.models) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if (m === info.default) opt.selected = true;
+            modelSelect.appendChild(opt);
+        }
+    } else if (provider === 'openai_compatible') {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '(enter model name)';
+        modelSelect.appendChild(opt);
+    }
+
+    // Restore saved API key for this provider
+    restoreApiKey();
+}
+
+function saveApiKey() {
+    const provider = document.getElementById('aiProvider').value;
+    const key = document.getElementById('aiApiKey').value;
+    if (key) {
+        localStorage.setItem(`manimator_apikey_${provider}`, key);
+    }
+}
+
+function restoreApiKey() {
+    const provider = document.getElementById('aiProvider').value;
+    const saved = localStorage.getItem(`manimator_apikey_${provider}`) || '';
+    document.getElementById('aiApiKey').value = saved;
+}
+
+async function generateWithAI() {
+    const topic = document.getElementById('topicInput').value;
+    if (!topic) { toast('Enter a topic first', 'error'); return; }
+
+    const provider = document.getElementById('aiProvider').value;
+    const model = document.getElementById('aiModel').value;
+    const apiKey = document.getElementById('aiApiKey').value;
+    const baseUrl = document.getElementById('aiBaseUrl')?.value || '';
+    const fmt = document.getElementById('metaFormat').value;
+    const theme = document.getElementById('metaTheme').value;
+
+    if (!apiKey) {
+        toast('Set your API key in Settings → AI Generation', 'error');
+        switchTab(document.querySelectorAll('.tab')[2], 'settings');
+        return;
+    }
+
+    // Disable button and show progress
+    const btns = document.querySelectorAll('[onclick="generateWithAI()"]');
+    btns.forEach(b => { b.disabled = true; b.textContent = 'Generating...'; });
+    toast('Generating storyboard with AI... this may take 10-30s', 'success');
+
+    try {
+        const resp = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                topic,
+                provider,
+                model,
+                api_key: apiKey,
+                format: fmt,
+                theme,
+                base_url: baseUrl,
+            })
+        });
+        const data = await resp.json();
+
+        if (resp.ok) {
+            storyboard = data;
+            syncUI();
+            toast('Storyboard generated with AI!', 'success');
+        } else {
+            toast(`AI generation failed: ${data.error}`, 'error');
+        }
+    } catch(e) {
+        toast(`AI generation error: ${e.message}`, 'error');
+    } finally {
+        btns.forEach(b => { b.disabled = false; b.textContent = 'Generate with AI'; });
+    }
+}
+
+// Load AI providers on init
+document.addEventListener('DOMContentLoaded', () => {
+    loadAIProviders();
+});
+
+// ── Upload ──
+async function uploadToYouTube(jobId) {
+    const privacy = prompt('Upload privacy (private/unlisted/public):', 'private');
+    if (!privacy || !['private','unlisted','public'].includes(privacy)) return;
+    toast('Uploading to YouTube...', '');
+    try {
+        const resp = await fetch('/api/upload', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ job_id: jobId, privacy })
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            toast(`Uploaded! ${data.url}`, 'success');
+        } else {
+            toast(`Upload failed: ${data.error}`, 'error');
+        }
+    } catch(e) {
+        toast(`Upload error: ${e.message}`, 'error');
+    }
+}
+
+// ── Pipeline ──
+async function loadPipelineStatus() {
+    try {
+        const resp = await fetch('/api/pipeline/status');
+        const data = await resp.json();
+        const el = document.getElementById('pipelineStatus');
+        if (!el) return;
+        el.innerHTML = Object.entries(data).map(([k,v]) =>
+            `<span style="margin-right:16px"><strong>${k}:</strong> ${v}</span>`
+        ).join('');
+    } catch(e) { /* ignore */ }
+}
+
+async function loadPipelineVideos() {
+    try {
+        const resp = await fetch('/api/pipeline/videos?limit=20');
+        const videos = await resp.json();
+        const el = document.getElementById('pipelineVideos');
+        if (!el) return;
+        if (!videos.length) { el.innerHTML = '<em>No videos yet</em>'; return; }
+        el.innerHTML = '<table style="width:100%;font-size:13px"><tr><th>Topic</th><th>Status</th><th>URL</th></tr>' +
+            videos.map(v => `<tr><td>${v.topic||''}</td><td>${v.status}</td><td>${v.youtube_url||'-'}</td></tr>`).join('') +
+            '</table>';
+    } catch(e) { /* ignore */ }
+}
+
+// ── Analytics ──
+async function loadAnalyticsSummary() {
+    try {
+        const resp = await fetch('/api/analytics/summary');
+        const data = await resp.json();
+        const el = document.getElementById('analyticsSummary');
+        if (!el) return;
+        el.innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
+                <div class="card" style="padding:12px"><strong>Total Views</strong><br>${data.total_views||0}</div>
+                <div class="card" style="padding:12px"><strong>Videos</strong><br>${data.total_videos||0}</div>
+                <div class="card" style="padding:12px"><strong>Avg CTR</strong><br>${((data.avg_ctr||0)*100).toFixed(1)}%</div>
+                <div class="card" style="padding:12px"><strong>Best Domain</strong><br>${data.best_domain||'-'}</div>
+                <div class="card" style="padding:12px"><strong>Best Day</strong><br>${data.best_posting_day||'-'}</div>
+                <div class="card" style="padding:12px"><strong>Top Video</strong><br>${data.best_video?.topic||'-'}</div>
+            </div>`;
+    } catch(e) { /* ignore */ }
+}
 
 // ── Toast ──
 function toast(msg, type = '') {

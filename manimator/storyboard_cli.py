@@ -210,6 +210,202 @@ def cmd_validate(args):
         sys.exit(1)
 
 
+def cmd_generate(args):
+    """Generate a storyboard using an LLM provider."""
+    from manimator.llm import generate_storyboard
+
+    try:
+        result = generate_storyboard(
+            topic=args.topic,
+            provider=args.provider,
+            model=args.model,
+            api_key=args.api_key,
+            domain=args.domain,
+            structure=args.structure,
+            format_type=args.format,
+            theme=args.theme,
+            base_url=args.base_url or "",
+        )
+    except Exception as e:
+        print(f"Generation failed: {e}")
+        sys.exit(1)
+
+    output_str = json.dumps(result, indent=2)
+    output_path = args.output
+    if output_path:
+        Path(output_path).write_text(output_str)
+        print(f"Storyboard saved to {output_path}")
+    else:
+        print(output_str)
+
+    print(f"Title: {result['meta']['title']}")
+    print(f"Scenes: {len(result['scenes'])}")
+
+    if args.render:
+        is_portrait = result.get("meta", {}).get("format", "") in (
+            "instagram_reel", "tiktok", "youtube_short"
+        )
+        if not output_path:
+            output_path = "generated_storyboard.json"
+            Path(output_path).write_text(output_str)
+
+        video_out = Path(output_path).stem + ".webm"
+        module = "manimator.portrait" if is_portrait else "manimator.orchestrator"
+        cmd = ["python", "-m", module, "-s", output_path, "-o", video_out]
+        if is_portrait:
+            cmd.extend(["--format", result["meta"].get("format", "instagram_reel")])
+        print(f"Rendering: {' '.join(cmd)}")
+
+        import subprocess
+        proc = subprocess.run(cmd, capture_output=False)
+        if proc.returncode == 0:
+            print(f"Video saved to {video_out}")
+        else:
+            print("Render failed")
+            sys.exit(1)
+
+
+def cmd_upload(args):
+    """Upload a rendered video to YouTube."""
+    from manimator.uploader import upload_short, upload_video
+
+    video_path = args.video_file
+    if not Path(video_path).exists():
+        print(f"Video file not found: {video_path}")
+        sys.exit(1)
+
+    if args.storyboard:
+        sb_path = Path(args.storyboard)
+        if not sb_path.exists():
+            print(f"Storyboard not found: {sb_path}")
+            sys.exit(1)
+        with open(sb_path) as f:
+            storyboard_data = json.load(f)
+        result = upload_short(
+            video_path=video_path,
+            storyboard_data=storyboard_data,
+            privacy=args.privacy,
+        )
+    else:
+        title = args.title or Path(video_path).stem
+        result = upload_video(
+            video_path=video_path,
+            title=title,
+            privacy=args.privacy,
+        )
+
+    print(f"Uploaded: {result['url']}")
+    print(f"Video ID: {result['video_id']}")
+    print(f"Status: {result['status']}")
+
+
+def cmd_pipeline(args):
+    """Pipeline sub-subcommand dispatcher."""
+    from manimator.pipeline import Pipeline
+
+    pipe = Pipeline()
+    try:
+        if args.pipeline_cmd == "add-topics":
+            path = Path(args.topics_file)
+            if not path.exists():
+                print(f"File not found: {path}")
+                sys.exit(1)
+
+            topics = []
+            for line in path.read_text().strip().splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    topics.append({
+                        "topic": line,
+                        "domain": args.domain,
+                        "structure": args.structure,
+                        "format": args.format,
+                        "theme": args.theme,
+                    })
+
+            ids = pipe.add_topics(topics)
+            print(f"Added {len(ids)} topics")
+
+        elif args.pipeline_cmd == "run":
+            results = pipe.run_pipeline(
+                provider=args.provider,
+                model=args.model,
+                api_key=args.api_key,
+                base_url=args.base_url or "",
+                limit=args.limit,
+                upload=args.upload,
+                privacy=args.privacy,
+                narrate=args.narrate,
+                voice=args.voice,
+                music=args.music,
+            )
+            done = sum(1 for r in results if r["status"] == "done")
+            failed = sum(1 for r in results if r["status"] == "failed")
+            print(f"Pipeline complete: {done} done, {failed} failed out of {len(results)}")
+            for r in results:
+                print(f"  [{r['status']:8s}] {r['topic']}")
+
+        elif args.pipeline_cmd == "status":
+            status = pipe.get_status()
+            print("Pipeline status:")
+            for key in ("queued", "generating", "rendering", "uploading", "done", "failed", "total"):
+                print(f"  {key:12s}: {status[key]}")
+
+        elif args.pipeline_cmd == "list":
+            videos = pipe.list_videos(status=args.status, limit=args.limit)
+            if not videos:
+                print("No videos found")
+            else:
+                for v in videos:
+                    yt = f" → {v['youtube_url']}" if v.get("youtube_url") else ""
+                    print(f"  [{v['status']:10s}] {v['topic']}{yt}")
+
+        else:
+            print("Unknown pipeline command. Use: add-topics, run, status, list")
+    finally:
+        pipe.close()
+
+
+def cmd_analytics(args):
+    """Analytics sub-subcommand dispatcher."""
+    from manimator.analytics import Analytics
+
+    analytics = Analytics()
+    try:
+        if args.analytics_cmd == "sync":
+            count = analytics.sync_metrics(days=args.days)
+            print(f"Synced {count} metric rows")
+
+        elif args.analytics_cmd == "top":
+            top = analytics.get_top_videos(metric=args.metric, limit=args.limit, days=args.days)
+            if not top:
+                print("No data available")
+            else:
+                for i, v in enumerate(top, 1):
+                    metric_key = f"total_{args.metric}"
+                    print(f"  {i}. {v.get('topic', 'Unknown')} — {v[metric_key]} {args.metric}")
+
+        elif args.analytics_cmd == "insights":
+            insights = analytics.get_insights()
+            print("Analytics Insights:")
+            print(f"  Total videos:   {insights['total_videos']}")
+            print(f"  Total views:    {insights['total_views']}")
+            print(f"  Avg views/vid:  {insights['avg_views_per_video']:.1f}")
+            print(f"  Avg CTR:        {insights['avg_ctr']:.2%}")
+            print(f"  Best domain:    {insights['best_domain']}")
+            print(f"  Worst domain:   {insights['worst_domain']}")
+            print(f"  Best post day:  {insights['best_posting_day']}")
+            if insights["best_video"]:
+                print(f"  Best video:     {insights['best_video']['topic']} "
+                      f"({insights['best_video']['total_views']} views)")
+            print(f"  Data freshness: {insights['data_freshness']}")
+
+        else:
+            print("Unknown analytics command. Use: sync, top, insights")
+    finally:
+        analytics.close()
+
+
 def cmd_schema(args):
     """Show detailed schema for a scene type."""
     stype = args.scene_type
@@ -269,6 +465,71 @@ def main():
     p_schema = sub.add_parser("schema", help="Show schema for a scene type")
     p_schema.add_argument("scene_type", help="Scene type name")
 
+    # generate
+    p_gen = sub.add_parser("generate", help="Generate storyboard using an LLM")
+    p_gen.add_argument("topic", help="Video topic")
+    p_gen.add_argument("--provider", "-p", default="openai",
+                       help="LLM provider (openai, anthropic, google, zhipuai, openai_compatible)")
+    p_gen.add_argument("--model", "-m", default=None, help="Model name (uses provider default)")
+    p_gen.add_argument("--api-key", default=None, help="API key (falls back to env var)")
+    p_gen.add_argument("--domain", "-d", default=None, help="Domain template")
+    p_gen.add_argument("--structure", "-s", default="explainer", help="Story structure")
+    p_gen.add_argument("--format", "-f", default="presentation", help="Video format")
+    p_gen.add_argument("--theme", "-t", default="wong", help="Color theme")
+    p_gen.add_argument("--base-url", default=None, help="Base URL for openai_compatible provider")
+    p_gen.add_argument("--output", "-o", default=None, help="Output JSON file path")
+    p_gen.add_argument("--render", action="store_true", help="Auto-render after generation")
+
+    # upload
+    p_upload = sub.add_parser("upload", help="Upload video to YouTube")
+    p_upload.add_argument("video_file", help="Path to video file")
+    p_upload.add_argument("--storyboard", "-s", default=None, help="Storyboard JSON for metadata")
+    p_upload.add_argument("--title", default=None, help="Video title (if no storyboard)")
+    p_upload.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"])
+
+    # pipeline
+    p_pipe = sub.add_parser("pipeline", help="Batch pipeline operations")
+    pipe_sub = p_pipe.add_subparsers(dest="pipeline_cmd")
+
+    p_pipe_add = pipe_sub.add_parser("add-topics", help="Add topics from a text file")
+    p_pipe_add.add_argument("topics_file", help="Text file with one topic per line")
+    p_pipe_add.add_argument("--domain", "-d", default=None)
+    p_pipe_add.add_argument("--structure", "-s", default="social_reel")
+    p_pipe_add.add_argument("--format", "-f", default="instagram_reel")
+    p_pipe_add.add_argument("--theme", "-t", default="wong")
+
+    p_pipe_run = pipe_sub.add_parser("run", help="Run the pipeline")
+    p_pipe_run.add_argument("--provider", "-p", default="openai")
+    p_pipe_run.add_argument("--model", "-m", default=None)
+    p_pipe_run.add_argument("--api-key", default=None)
+    p_pipe_run.add_argument("--base-url", default=None)
+    p_pipe_run.add_argument("--limit", type=int, default=5)
+    p_pipe_run.add_argument("--upload", action="store_true")
+    p_pipe_run.add_argument("--privacy", default="private", choices=["private", "unlisted", "public"])
+    p_pipe_run.add_argument("--narrate", action="store_true")
+    p_pipe_run.add_argument("--voice", default="aria")
+    p_pipe_run.add_argument("--music", default="")
+
+    pipe_sub.add_parser("status", help="Show pipeline status")
+
+    p_pipe_list = pipe_sub.add_parser("list", help="List videos")
+    p_pipe_list.add_argument("--status", default=None)
+    p_pipe_list.add_argument("--limit", type=int, default=20)
+
+    # analytics
+    p_anl = sub.add_parser("analytics", help="YouTube analytics operations")
+    anl_sub = p_anl.add_subparsers(dest="analytics_cmd")
+
+    p_anl_sync = anl_sub.add_parser("sync", help="Sync metrics from YouTube")
+    p_anl_sync.add_argument("--days", type=int, default=7)
+
+    p_anl_top = anl_sub.add_parser("top", help="Show top videos by metric")
+    p_anl_top.add_argument("--metric", default="views", choices=["views", "likes", "comments", "shares"])
+    p_anl_top.add_argument("--limit", type=int, default=10)
+    p_anl_top.add_argument("--days", type=int, default=30)
+
+    anl_sub.add_parser("insights", help="Show analytics insights summary")
+
     args = parser.parse_args()
     if args.command is None:
         parser.print_help()
@@ -281,6 +542,10 @@ def main():
         "example": cmd_example,
         "validate": cmd_validate,
         "schema": cmd_schema,
+        "generate": cmd_generate,
+        "upload": cmd_upload,
+        "pipeline": cmd_pipeline,
+        "analytics": cmd_analytics,
     }
     cmds[args.command](args)
 
