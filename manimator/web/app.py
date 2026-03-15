@@ -384,7 +384,7 @@ def api_render():
             reader.start()
 
             try:
-                proc.wait(timeout=600)
+                proc.wait(timeout=1800)  # 30 min — large renders take 8-15 min
             except subprocess.TimeoutExpired:
                 proc.kill()
                 reader.join(timeout=2)
@@ -405,7 +405,7 @@ def api_render():
         except subprocess.TimeoutExpired:
             JOBS[job_id]["status"] = "failed"
             last_lines = "\n".join(lines[-10:]) if lines else "(no output)"
-            JOBS[job_id]["error"] = f"Render timed out. Last output:\n{last_lines}"
+            JOBS[job_id]["error"] = f"Render timed out after 30 minutes. Last output:\n{last_lines}"
             log.error("Render timeout: job=%s last_output=%s", job_id, last_lines)
         except Exception as e:
             JOBS[job_id]["status"] = "failed"
