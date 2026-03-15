@@ -251,25 +251,42 @@ def api_providers():
 
 @app.route("/api/ollama/models", methods=["GET"])
 def api_ollama_models():
-    """Fetch locally installed Ollama models from the Ollama API."""
+    """Fetch locally installed Ollama models from the Ollama API.
+
+    Tries the requested base_url first, then falls back to host.docker.internal
+    so Docker containers can reach Ollama running on the host automatically.
+    """
     import urllib.request
     import urllib.error
 
-    base_url = request.args.get("base_url", "http://localhost:11434").rstrip("/")
-    # Normalise: strip /v1 suffix if present — tags endpoint is on the base port
-    if base_url.endswith("/v1"):
-        base_url = base_url[:-3]
+    def _strip_v1(url: str) -> str:
+        url = url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3]
+        return url
 
-    try:
-        url = f"{base_url}/api/tags"
-        with urllib.request.urlopen(url, timeout=3) as resp:
+    def _fetch_models(base: str):
+        with urllib.request.urlopen(f"{base}/api/tags", timeout=3) as resp:
             data = json.loads(resp.read())
-        models = [m["name"] for m in data.get("models", [])]
-        return jsonify({"models": models})
-    except urllib.error.URLError:
-        return jsonify({"models": [], "error": "Ollama not reachable"}), 200
-    except Exception as e:
-        return jsonify({"models": [], "error": str(e)}), 200
+        return [m["name"] for m in data.get("models", [])]
+
+    requested = _strip_v1(request.args.get("base_url", "http://localhost:11434"))
+
+    # Build fallback list: if user specified localhost, also try host.docker.internal
+    candidates = [requested]
+    if "localhost" in requested or "127.0.0.1" in requested:
+        fallback = requested.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
+        candidates.append(fallback)
+
+    for base in candidates:
+        try:
+            models = _fetch_models(base)
+            # If we succeeded via a different URL, tell the frontend to update
+            return jsonify({"models": models, "resolved_url": base + "/v1"})
+        except Exception:
+            continue
+
+    return jsonify({"models": [], "error": "Ollama not reachable at " + requested}), 200
 
 
 @app.route("/api/render", methods=["POST"])
@@ -2562,7 +2579,8 @@ function onProviderChange() {
 
 async function populateOllamaModels() {
     const modelSelect = document.getElementById('aiModel');
-    const baseUrl = document.getElementById('aiBaseUrl').value || 'http://localhost:11434/v1';
+    const baseUrlInput = document.getElementById('aiBaseUrl');
+    const baseUrl = baseUrlInput.value || 'http://localhost:11434/v1';
 
     modelSelect.innerHTML = '<option value="" disabled>Detecting models...</option>';
 
@@ -2572,6 +2590,10 @@ async function populateOllamaModels() {
 
         modelSelect.innerHTML = '';
         if (data.models && data.models.length > 0) {
+            // If backend resolved via host.docker.internal, update the URL input
+            if (data.resolved_url && data.resolved_url !== baseUrl) {
+                baseUrlInput.value = data.resolved_url;
+            }
             for (const m of data.models) {
                 const opt = document.createElement('option');
                 opt.value = m;
