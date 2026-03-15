@@ -9,6 +9,7 @@ build/
 .claude/
 .pytest_cache/
 media/
+output/
 manimator_output/
 vidgen_output/
 .portrait_*/

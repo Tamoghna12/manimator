@@ -43,9 +43,15 @@ PROVIDERS = {
         "env_key": "GOOGLE_API_KEY",
     },
     "zhipuai": {
-        "models": ["glm-4", "glm-4-flash"],
-        "default": "glm-4-flash",
+        "models": ["glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-FlashX", "glm-4.7-Flash"],
+        "default": "glm-5",
         "env_key": "ZHIPUAI_API_KEY",
+    },
+    "ollama": {
+        "models": ["llama3.2", "llama3.1", "mistral", "qwen2.5", "gemma3", "phi4"],
+        "default": "llama3.2",
+        "env_key": "",
+        "base_url": "http://localhost:11434/v1",
     },
     "openai_compatible": {
         "models": [],
@@ -166,10 +172,13 @@ def _call_google(prompt: str, model: str, api_key: str, **kwargs) -> str:
 
 
 def _call_zhipuai(prompt: str, model: str, api_key: str, **kwargs) -> str:
-    """Call ZhipuAI API. Lazy-imports zhipuai SDK."""
-    from zhipuai import ZhipuAI
+    """Call ZhipuAI (Z.AI) API. Uses OpenAI-compatible endpoint."""
+    from openai import OpenAI
 
-    client = ZhipuAI(api_key=api_key)
+    client = OpenAI(
+        api_key=api_key,
+        base_url="https://api.z.ai/api/paas/v4/",
+    )
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -179,6 +188,24 @@ def _call_zhipuai(prompt: str, model: str, api_key: str, **kwargs) -> str:
         ],
         temperature=0.7,
         max_tokens=4096,
+    )
+    return response.choices[0].message.content
+
+
+def _call_ollama(prompt: str, model: str, api_key: str = "", base_url: str = "", **kwargs) -> str:
+    """Call Ollama local API. Uses OpenAI-compatible endpoint."""
+    from openai import OpenAI
+
+    url = base_url or "http://localhost:11434/v1"
+    client = OpenAI(api_key=api_key or "ollama", base_url=url)
+    response = client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": "You are a scientific video storyboard generator. "
+             "Output ONLY valid JSON matching the requested schema."},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0.7,
     )
     return response.choices[0].message.content
 
@@ -213,6 +240,7 @@ _CALLERS = {
     "anthropic": "_call_anthropic",
     "google": "_call_google",
     "zhipuai": "_call_zhipuai",
+    "ollama": "_call_ollama",
     "openai_compatible": "_call_openai_compatible",
 }
 
@@ -262,13 +290,17 @@ def generate_storyboard(
 
     info = PROVIDERS[provider]
 
-    # Resolve API key
-    if not api_key:
+    # Resolve API key (Ollama doesn't require one)
+    if not api_key and info.get("env_key"):
         api_key = os.environ.get(info["env_key"], "")
-    if not api_key:
+    if not api_key and info.get("env_key"):
         raise ValueError(
             f"No API key for {provider}. Set {info['env_key']} env var or pass api_key."
         )
+
+    # Resolve base_url (use provider default if not explicitly passed)
+    if not base_url and info.get("base_url"):
+        base_url = info["base_url"]
 
     # Resolve model
     if not model:

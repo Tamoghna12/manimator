@@ -1708,7 +1708,8 @@ textarea {
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic</option>
                         <option value="google">Google Gemini</option>
-                        <option value="zhipuai">ZhipuAI</option>
+                        <option value="zhipuai">ZhipuAI (GLM-5)</option>
+                        <option value="ollama">Ollama (Local)</option>
                         <option value="openai_compatible">OpenAI-Compatible</option>
                     </select>
                 </div>
@@ -2500,9 +2501,21 @@ function onProviderChange() {
     const provider = document.getElementById('aiProvider').value;
     const modelSelect = document.getElementById('aiModel');
     const baseUrlGroup = document.getElementById('aiBaseUrlGroup');
+    const baseUrlInput = document.getElementById('aiBaseUrl');
+    const apiKeyGroup = document.getElementById('aiApiKey').closest('.form-group');
 
-    // Show/hide base URL field
-    baseUrlGroup.style.display = provider === 'openai_compatible' ? '' : 'none';
+    // Show/hide base URL field and auto-fill for Ollama
+    if (provider === 'ollama') {
+        baseUrlGroup.style.display = '';
+        if (!baseUrlInput.value) baseUrlInput.value = 'http://localhost:11434/v1';
+        apiKeyGroup.style.display = 'none';
+    } else if (provider === 'openai_compatible') {
+        baseUrlGroup.style.display = '';
+        apiKeyGroup.style.display = '';
+    } else {
+        baseUrlGroup.style.display = 'none';
+        apiKeyGroup.style.display = '';
+    }
 
     // Populate model dropdown
     modelSelect.innerHTML = '';
@@ -2515,7 +2528,7 @@ function onProviderChange() {
             if (m === info.default) opt.selected = true;
             modelSelect.appendChild(opt);
         }
-    } else if (provider === 'openai_compatible') {
+    } else if (provider === 'openai_compatible' || provider === 'ollama') {
         const opt = document.createElement('option');
         opt.value = '';
         opt.textContent = '(enter model name)';

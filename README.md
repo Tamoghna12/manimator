@@ -13,6 +13,88 @@ Takes a JSON storyboard and renders it into a production-quality video with opti
 
 ## Install
 
+### Docker (recommended — works on all platforms)
+
+Docker is the easiest way to run manimator on **Windows, macOS, and Linux**. It bundles all system dependencies (ffmpeg, Cairo, Pango, fonts, Chromium) so you don't need to install them manually.
+
+**Prerequisites:**
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Windows/macOS) or Docker Engine (Linux)
+- On Windows, make sure Docker Desktop is running before proceeding
+
+**Build and run:**
+
+```bash
+# Clone the repo
+git clone https://github.com/Tamoghna12/manimator.git
+cd manimator
+
+# Build the image
+docker build -t manimator .
+
+# Run the web UI
+docker run -p 5100:5100 -v ./output:/app/manimator_output manimator
+```
+
+Open http://localhost:5100 in your browser.
+
+**Windows (PowerShell):**
+
+```powershell
+# Clone
+git clone https://github.com/Tamoghna12/manimator.git
+cd manimator
+
+# Build
+docker build -t manimator .
+
+# Run (use ${PWD} for volume mount on Windows)
+docker run -p 5100:5100 -v "${PWD}/output:/app/manimator_output" manimator
+```
+
+**Windows (Command Prompt):**
+
+```cmd
+git clone https://github.com/Tamoghna12/manimator.git
+cd manimator
+
+docker build -t manimator .
+
+docker run -p 5100:5100 -v "%cd%/output:/app/manimator_output" manimator
+```
+
+**With docker compose:**
+
+```bash
+docker compose up --build
+```
+
+**Pass API keys for AI generation:**
+
+```bash
+# Linux/macOS
+docker run -p 5100:5100 \
+  -v ./output:/app/manimator_output \
+  -e OPENAI_API_KEY=sk-... \
+  manimator
+
+# Windows PowerShell
+docker run -p 5100:5100 `
+  -v "${PWD}/output:/app/manimator_output" `
+  -e OPENAI_API_KEY=sk-... `
+  manimator
+```
+
+You can also enter API keys directly in the web UI without setting environment variables.
+
+**Render a video via CLI (Docker):**
+
+```bash
+docker run -v ./output:/app/manimator_output -v ./my_storyboard.json:/app/input.json \
+    manimator manimator.portrait -s /app/input.json --narrate -o /app/manimator_output/out.webm
+```
+
+### Native install (Linux/macOS)
+
 ```bash
 # Clone
 git clone https://github.com/Tamoghna12/manimator.git
@@ -27,26 +109,165 @@ playwright install chromium
 # Install system dependencies (Ubuntu/Debian)
 sudo apt-get install ffmpeg libcairo2-dev libpango1.0-dev
 
+# macOS (Homebrew)
+# brew install ffmpeg cairo pango
+
 # Optional: install fonts for portrait videos
 mkdir -p ~/.local/share/fonts
 # Download Inter and JetBrains Mono from Google Fonts, copy .ttf files there
 fc-cache -fv
 ```
 
-### Docker (recommended)
+### Native install (Windows — without Docker)
+
+If you prefer not to use Docker on Windows, you can install natively. This requires more manual setup.
+
+**1. Install Python 3.10+**
+
+Download from https://www.python.org/downloads/ and check "Add Python to PATH" during installation.
+
+**2. Install ffmpeg**
+
+```powershell
+# Option A: Using winget (Windows 11 / Windows 10 with App Installer)
+winget install Gyan.FFmpeg
+
+# Option B: Using Chocolatey
+choco install ffmpeg
+
+# Option C: Manual install
+# Download from https://www.gyan.dev/ffmpeg/builds/
+# Extract and add the bin/ folder to your system PATH
+```
+
+Verify: `ffmpeg -version`
+
+**3. Install GTK3 runtime (provides Cairo and Pango)**
+
+Download and install the GTK3 runtime from https://github.com/nickvdp/gtk3-win/releases — this provides the `libcairo` and `libpango` DLLs that Manim needs.
+
+Alternatively, install via MSYS2:
+```powershell
+# Install MSYS2 from https://www.msys2.org/
+# Then in an MSYS2 terminal:
+pacman -S mingw-w64-x86_64-cairo mingw-w64-x86_64-pango
+# Add C:\msys64\mingw64\bin to your system PATH
+```
+
+**4. Install manimator**
+
+```powershell
+git clone https://github.com/Tamoghna12/manimator.git
+cd manimator
+
+pip install -e ".[dev]"
+
+# Install Playwright browser
+playwright install chromium
+```
+
+**5. Run**
+
+```powershell
+python -m manimator.web
+# Opens at http://localhost:5100
+```
+
+### Supported LLM providers
+
+| Provider | Models | API key env var |
+|----------|--------|-----------------|
+| OpenAI | gpt-4o, gpt-4o-mini | `OPENAI_API_KEY` |
+| Anthropic | claude-sonnet-4-20250514, claude-haiku-4-5-20251001 | `ANTHROPIC_API_KEY` |
+| Google Gemini | gemini-2.5-flash, gemini-2.0-flash | `GOOGLE_API_KEY` |
+| ZhipuAI (Z.AI) | glm-5, glm-5-turbo, glm-4.7, glm-4.7-FlashX, glm-4.7-Flash | `ZHIPUAI_API_KEY` |
+| Ollama | llama3.2, mistral, qwen2.5, gemma3, phi4, any local model | _(no key needed)_ |
+| OpenAI-compatible | Any (Groq, Together, etc.) | `OPENAI_API_KEY` + base URL |
+
+**ZhipuAI (Z.AI):** Uses the OpenAI-compatible endpoint at `https://api.z.ai/api/paas/v4/` — no separate SDK required. Get your API key from https://open.bigmodel.cn/. The **GLM Coding Pro** plan includes access to `glm-5`, `glm-5-turbo`, `glm-4.7`, `glm-4.7-FlashX`, and `glm-4.7-Flash`.
+
+**Ollama:** Runs models locally on your machine — no API key or internet required after the initial model download. See the [Ollama section](#ollama-local-models) below for setup.
+
+All providers can be selected in the web UI dropdown. API keys can be entered in the UI or set as environment variables.
+
+### Ollama (local models)
+
+Ollama lets you run LLMs locally for storyboard generation — no API key, no cost, no data leaving your machine.
+
+#### 1. Install Ollama
+
+**Windows:** Download and run the installer from https://ollama.com/download
+
+**macOS:**
+```bash
+brew install ollama
+```
+
+**Linux:**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+#### 2. Pull a model
 
 ```bash
-# Build and run
-docker compose up --build
+# Fast and capable (recommended for storyboards)
+ollama pull llama3.2
 
-# Or without compose
-docker build -t manimator .
-docker run -p 5100:5100 -v ./output:/app/manimator_output manimator
-
-# Render a video via CLI
-docker run -v ./output:/app/manimator_output -v ./my_storyboard.json:/app/input.json \
-    manimator manimator.portrait -s /app/input.json --narrate -o /app/manimator_output/out.webm
+# Other good options
+ollama pull mistral
+ollama pull qwen2.5
+ollama pull gemma3
+ollama pull phi4
 ```
+
+#### 3. Start Ollama server
+
+```bash
+ollama serve
+# Runs at http://localhost:11434
+```
+
+On Windows and macOS, Ollama starts automatically after install. On Linux, you may need to start it manually or enable the systemd service:
+
+```bash
+sudo systemctl enable ollama
+sudo systemctl start ollama
+```
+
+#### 4. Use in the web UI
+
+Select **Ollama (Local)** from the provider dropdown. The base URL auto-fills to `http://localhost:11434/v1`. Pick a model from the list (or type any model name you have pulled), leave the API key blank, and click **Generate**.
+
+#### 5. Docker + Ollama (Linux)
+
+When manimator runs inside Docker, `localhost` refers to the container, not your host machine. Use `host.docker.internal` instead:
+
+```bash
+# Add --add-host flag so the container can reach Ollama on your host
+sudo docker run -d \
+  -p 5300:5300 \
+  -v ./output:/app/manimator_output \
+  -e MANIMATOR_HOST=0.0.0.0 \
+  -e MANIMATOR_PORT=5300 \
+  --add-host=host.docker.internal:host-gateway \
+  --name manimator \
+  manimator
+```
+
+Then in the web UI, set the Ollama base URL to:
+```
+http://host.docker.internal:11434/v1
+```
+
+On **Windows and macOS**, `host.docker.internal` works automatically — no `--add-host` flag needed.
+
+#### Ollama tips
+
+- Use `ollama list` to see which models you have pulled
+- Larger models (7B+) produce better storyboard JSON but are slower; `llama3.2` (3B) is a good balance
+- If generation returns malformed JSON, try a larger model or add `--max-retries 2` in the CLI
+- Ollama uses GPU automatically if available (NVIDIA/AMD/Apple Silicon)
 
 ### YouTube integration (optional)
 
@@ -61,9 +282,11 @@ pip install -e ".[youtube]"
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
 2. Create an OAuth 2.0 Client ID (Desktop application)
 3. Enable the YouTube Data API v3 and YouTube Analytics API
-4. Download `client_secret.json` to `~/.config/manimator/client_secret.json`
+4. Download `client_secret.json`:
+   - **Linux/macOS:** `~/.config/manimator/client_secret.json`
+   - **Windows:** `%USERPROFILE%\.config\manimator\client_secret.json`
 
-On first upload, a browser window opens for OAuth consent. The refresh token is stored at `~/.config/manimator/youtube_token.json` (permissions `0600`).
+On first upload, a browser window opens for OAuth consent. The refresh token is stored at `youtube_token.json` in the same directory.
 
 **Quota:** YouTube Data API defaults to 10,000 units/day. Each upload costs ~1,600 units, limiting you to ~6 uploads/day. The pipeline enforces this limit automatically. Request a quota increase via Google Cloud Console if needed.
 
@@ -82,6 +305,7 @@ The web UI provides:
 - Template browser organized by domain (biology, CS, math)
 - Live HTML preview of each scene
 - JSON editor with validation
+- AI storyboard generation (select provider, enter API key, type a topic)
 - LLM prompt generator (copy prompt → paste into Claude/ChatGPT → paste JSON back)
 - Background rendering with progress tracking
 - YouTube upload button (appears after successful render)
@@ -214,6 +438,47 @@ python -m manimator.storyboard_cli analytics insights
 ```
 
 **Note:** YouTube Analytics data lags 48-72 hours behind real-time. The "best posting day" insight uses only first-day metrics per video as a proxy for upload day to avoid conflating accumulation patterns with posting day effects (cf. Kohavi et al., 2020, *Trustworthy Online Controlled Experiments*, Cambridge University Press).
+
+## Troubleshooting
+
+### Windows-specific issues
+
+**`ffmpeg` not found:** Make sure ffmpeg is on your PATH. After installing, open a new terminal and run `ffmpeg -version`. If it still doesn't work, add the ffmpeg `bin/` folder to your system PATH manually (System → Advanced → Environment Variables → Path → Edit → Add).
+
+**Cairo/Pango DLL errors:** Manim needs Cairo and Pango. The easiest fix is to install GTK3 runtime or use MSYS2 (see native install instructions above). Make sure the DLL directory is on your system PATH.
+
+**Long path errors:** Windows has a 260-character path limit by default. Enable long paths:
+```powershell
+# Run PowerShell as Administrator
+New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name "LongPathsEnabled" -Value 1 -PropertyType DWORD -Force
+```
+
+**Permission errors with Docker:** Make sure Docker Desktop is running. If you get "access denied", right-click Docker Desktop → "Run as administrator", or add your user to the `docker-users` group.
+
+### Linux-specific issues
+
+**Docker permission denied:** Add your user to the docker group:
+```bash
+sudo usermod -aG docker $USER
+# Log out and back in for the change to take effect
+```
+
+**Missing system libraries:** If pycairo fails to build:
+```bash
+sudo apt-get install build-essential libcairo2-dev libpango1.0-dev pkg-config python3-dev
+```
+
+### General issues
+
+**Playwright browser not found:** Run `playwright install chromium` (or inside Docker, this is done automatically).
+
+**AI generation fails with "No module named ...":** Make sure you have the provider's SDK installed. With Docker, the OpenAI, Anthropic, and Google SDKs are pre-installed. ZhipuAI uses the OpenAI SDK (no extra install needed).
+
+**"No video files to concatenate":** This means scene rendering failed before the concatenation step. Check the full error log above this message for the actual rendering error (usually a missing dependency or invalid storyboard JSON).
+
+**Ollama not reachable from Docker (Linux):** If Ollama is running on your host but the container can't reach it, add `--add-host=host.docker.internal:host-gateway` to your `docker run` command and use `http://host.docker.internal:11434/v1` as the base URL in the web UI. On Windows/macOS this works automatically.
+
+**Ollama returns invalid JSON:** The model may be too small to reliably follow the storyboard schema. Try `llama3.2` (3B) or larger. You can also retry — the UI will automatically send the error back to the model for correction.
 
 ## Storyboard format
 
@@ -441,7 +706,7 @@ All tests use in-memory SQLite (`:memory:`) and mocked external services. No You
 ```toml
 [project.optional-dependencies]
 dev = ["pytest", "pytest-cov", "mypy", "ruff"]
-ai = ["openai>=1.0", "anthropic>=0.30", "google-genai>=1.0", "zhipuai>=2.0"]
+ai = ["openai>=1.0", "anthropic>=0.30", "google-genai>=1.0"]
 youtube = ["google-api-python-client>=2.100", "google-auth-oauthlib>=1.0", "google-auth-httplib2>=0.2"]
 ```
 

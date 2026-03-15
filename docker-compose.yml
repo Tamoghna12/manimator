@@ -2,9 +2,9 @@ services:
   manimator:
     build: .
     ports:
-      - "5100:5100"
+      - "5300:5300"
     volumes:
       - ./output:/app/manimator_output
     environment:
       - MANIMATOR_HOST=0.0.0.0
-      - MANIMATOR_PORT=5100
+      - MANIMATOR_PORT=5300

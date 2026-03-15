@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 # System dependencies: Manim (cairo, pango), ffmpeg, fonts
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     ffmpeg \
     libcairo2-dev \
     libpango1.0-dev \
@@ -22,6 +23,9 @@ RUN pip install --no-cache-dir \
     "playwright>=1.40" \
     "edge-tts>=6.1" \
     "gTTS>=2.3" \
+    "openai>=1.0" \
+    "anthropic>=0.30" \
+    "google-genai>=1.0" \
     && playwright install --with-deps chromium
 
 # Copy source and install package
