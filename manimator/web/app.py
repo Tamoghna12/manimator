@@ -212,7 +212,7 @@ def api_generate():
 
     if not topic:
         return jsonify({"error": "Topic is required"}), 400
-    if not api_key:
+    if not api_key and provider != "ollama":
         return jsonify({"error": "API key is required"}), 400
 
     try:
@@ -563,7 +563,7 @@ def api_pipeline_run():
     voice = data.get("voice", "aria")
     music = data.get("music", "")
 
-    if not api_key:
+    if not api_key and provider != "ollama":
         return jsonify({"error": "API key is required"}), 400
 
     run_id = str(uuid.uuid4())[:8]
