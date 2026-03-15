@@ -197,12 +197,14 @@ def _call_ollama(prompt: str, model: str, api_key: str = "", base_url: str = "",
     from openai import OpenAI
 
     url = base_url or "http://localhost:11434/v1"
-    client = OpenAI(api_key=api_key or "ollama", base_url=url)
+    # Local models can be slow — use a long timeout
+    client = OpenAI(api_key=api_key or "ollama", base_url=url, timeout=300)
     response = client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": "You are a scientific video storyboard generator. "
-             "Output ONLY valid JSON matching the requested schema."},
+             "Output ONLY valid JSON matching the requested schema. Do not include any explanation, "
+             "only output the raw JSON object."},
             {"role": "user", "content": prompt},
         ],
         temperature=0.7,
@@ -337,8 +339,8 @@ def generate_storyboard(
         data = extract_json(raw_text)
 
         try:
-            Storyboard(**data)
-            return data
+            validated = Storyboard(**data)
+            return validated.model_dump()
         except Exception as e:
             last_error = str(e)
             if attempt >= max_retries:

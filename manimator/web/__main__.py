@@ -12,7 +12,7 @@ def main():
     port = int(os.environ.get("MANIMATOR_PORT", "5100"))
     log.info("Starting web UI at http://%s:%d", host, port)
     webbrowser.open(f"http://localhost:{port}")
-    app.run(host=host, port=port, debug=False)
+    app.run(host=host, port=port, debug=False, threaded=True)
 
 
 if __name__ == "__main__":

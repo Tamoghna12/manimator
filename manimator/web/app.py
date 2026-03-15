@@ -2661,14 +2661,19 @@ async function generateWithAI() {
         });
         const data = await resp.json();
 
-        if (resp.ok) {
+        if (resp.ok && data.scenes) {
             storyboard = data;
             syncUI();
             toast('Storyboard generated with AI!', 'success');
+        } else if (resp.ok && !data.scenes) {
+            console.error('Generate returned 200 but no scenes:', data);
+            toast(`AI returned unexpected response — check browser console`, 'error');
         } else {
-            toast(`AI generation failed: ${data.error}`, 'error');
+            console.error('Generate failed:', data);
+            toast(`AI generation failed: ${data.error || JSON.stringify(data)}`, 'error');
         }
     } catch(e) {
+        console.error('Generate exception:', e);
         toast(`AI generation error: ${e.message}`, 'error');
     } finally {
         btns.forEach(b => { b.disabled = false; b.textContent = 'Generate with AI'; });
