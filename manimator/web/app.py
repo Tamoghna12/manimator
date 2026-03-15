@@ -457,9 +457,61 @@ def api_pipeline_add_topics():
     return jsonify({"added": len(ids), "ids": ids})
 
 
+@app.route("/api/pipeline/add-storyboards", methods=["POST"])
+def api_pipeline_add_storyboards():
+    """Import pre-written storyboard JSONs (no LLM needed)."""
+    data = request.json
+    storyboards = data.get("storyboards", [])
+    if not storyboards:
+        return jsonify({"error": "No storyboards provided"}), 400
+
+    entries = []
+    for i, entry in enumerate(storyboards):
+        sb = entry.get("storyboard")
+        if not sb or "meta" not in sb or "scenes" not in sb:
+            return jsonify({"error": f"Entry {i}: must have storyboard with meta and scenes"}), 400
+        try:
+            Storyboard(**sb)
+        except Exception as e:
+            return jsonify({"error": f"Entry {i}: invalid storyboard — {e}"}), 400
+        entries.append(entry)
+
+    pipe = _get_pipeline()
+    ids = pipe.add_storyboards(entries)
+    return jsonify({"added": len(ids), "ids": ids})
+
+
+@app.route("/api/pipeline/render", methods=["POST"])
+def api_pipeline_render():
+    """Render queued storyboards (no LLM needed, runs in thread pool)."""
+    data = request.json or {}
+    limit = min(int(data.get("limit", 5)), 20)
+    upload = bool(data.get("upload", False))
+    privacy = data.get("privacy", "private")
+    narrate = bool(data.get("narrate", False))
+    voice = data.get("voice", "aria")
+    music = data.get("music", "")
+
+    run_id = str(uuid.uuid4())[:8]
+
+    def _run():
+        pipe = _get_pipeline()
+        try:
+            results = pipe.run_renders(
+                limit=limit, upload=upload, privacy=privacy,
+                narrate=narrate, voice=voice, music=music,
+            )
+            log.info("Render run %s complete: %d results", run_id, len(results))
+        except Exception as e:
+            log.exception("Render run %s failed", run_id)
+
+    _render_pool.submit(_run)
+    return jsonify({"run_id": run_id, "status": "started", "limit": limit})
+
+
 @app.route("/api/pipeline/run", methods=["POST"])
 def api_pipeline_run():
-    """Trigger a pipeline run (executes in thread pool)."""
+    """Trigger a full pipeline run with LLM (executes in thread pool)."""
     data = request.json or {}
     provider = data.get("provider", "openai")
     model = data.get("model")

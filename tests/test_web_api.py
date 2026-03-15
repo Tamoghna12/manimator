@@ -198,6 +198,54 @@ class TestPipelineAddTopicsRoute:
         assert resp.status_code == 400
 
 
+class TestPipelineAddStoryboardsRoute:
+    @patch("manimator.web.app._get_pipeline")
+    def test_add_storyboards_returns_ids(self, mock_get, client, valid_storyboard_dict):
+        mock_pipe = MagicMock()
+        mock_pipe.add_storyboards.return_value = ["id1"]
+        mock_get.return_value = mock_pipe
+        resp = client.post(
+            "/api/pipeline/add-storyboards",
+            data=json.dumps({"storyboards": [{"storyboard": valid_storyboard_dict}]}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["added"] == 1
+
+    def test_empty_storyboards_returns_400(self, client):
+        resp = client.post(
+            "/api/pipeline/add-storyboards",
+            data=json.dumps({"storyboards": []}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+    def test_invalid_storyboard_returns_400(self, client):
+        resp = client.post(
+            "/api/pipeline/add-storyboards",
+            data=json.dumps({"storyboards": [{"storyboard": {"no_meta": True}}]}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 400
+
+
+class TestPipelineRenderRoute:
+    @patch("manimator.web.app._get_pipeline")
+    @patch("manimator.web.app._render_pool")
+    def test_render_returns_started(self, mock_pool, mock_get, client):
+        mock_pipe = MagicMock()
+        mock_get.return_value = mock_pipe
+        resp = client.post(
+            "/api/pipeline/render",
+            data=json.dumps({"limit": 3}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "started"
+        assert data["limit"] == 3
+
+
 class TestPipelineRunRoute:
     def test_run_without_api_key_returns_400(self, client):
         resp = client.post(

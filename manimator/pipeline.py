@@ -103,7 +103,103 @@ class Pipeline:
         rows = self._conn.execute(sql, (limit,)).fetchall()
         return [dict(r) for r in rows]
 
-    # ── Pipeline execution ───────────────────────────────────────────────
+    # ── Storyboard import (no LLM needed) ───────────────────────────────
+
+    def add_storyboards(self, storyboards: list[dict]) -> list[str]:
+        """Import pre-written storyboard JSONs directly into the pipeline.
+
+        Each entry is a dict with at minimum a valid storyboard under
+        the key "storyboard" (with "meta" and "scenes"). Optional keys:
+        domain, format, theme.
+
+        Creates video entries with storyboard_json already populated so
+        run_renders() can process them without an LLM.
+
+        Returns list of generated video UUIDs.
+        """
+        ids = []
+        now = datetime.now(timezone.utc).isoformat()
+        for entry in storyboards:
+            vid = str(uuid.uuid4())
+            sb = entry["storyboard"]
+            meta = sb.get("meta", {})
+            title = meta.get("title", "Untitled")
+            fmt = entry.get("format") or meta.get("format", "instagram_reel")
+            theme = entry.get("theme") or meta.get("color_theme", "wong")
+            domain = entry.get("domain")
+
+            self._conn.execute(
+                "INSERT INTO videos (id, topic, provider, model, domain, structure, "
+                "format, theme, status, storyboard_json, created_at) "
+                "VALUES (?, ?, 'manual', NULL, ?, NULL, ?, ?, 'queued', ?, ?)",
+                (vid, title, domain, fmt, theme, json.dumps(sb), now),
+            )
+            ids.append(vid)
+        self._conn.commit()
+        return ids
+
+    def run_renders(
+        self,
+        limit: int = 5,
+        upload: bool = False,
+        privacy: str = "private",
+        narrate: bool = False,
+        voice: str = "aria",
+        music: str = "",
+    ) -> list[dict]:
+        """Render queued videos that already have storyboard_json populated.
+
+        This is the no-LLM path: storyboards are imported via add_storyboards()
+        or written manually, and this method renders them directly.
+        """
+        self.recover_stale()
+
+        rows = self._conn.execute(
+            "SELECT * FROM videos WHERE status = 'queued' AND storyboard_json IS NOT NULL "
+            "ORDER BY created_at ASC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        results = []
+        for row in rows:
+            vid = row["id"]
+            storyboard = json.loads(row["storyboard_json"])
+            topic_row = {
+                "topic": row["topic"],
+                "domain": row["domain"],
+                "format": row["format"],
+                "theme": row["theme"],
+            }
+
+            try:
+                video_path = self._render_one(vid, storyboard, topic_row, narrate, voice, music)
+
+                youtube_id = youtube_url = None
+                if upload:
+                    youtube_id, youtube_url = self._upload_one(
+                        vid, video_path, storyboard, privacy
+                    )
+
+                self._conn.execute(
+                    "UPDATE videos SET status = 'done', completed_at = ? WHERE id = ?",
+                    (datetime.now(timezone.utc).isoformat(), vid),
+                )
+                self._conn.commit()
+                results.append({"video_id": vid, "status": "done", "topic": row["topic"]})
+
+            except Exception as e:
+                log.error("Render failed for video %s: %s", vid, e)
+                self._conn.execute(
+                    "UPDATE videos SET status = 'failed', error = ?, completed_at = ? WHERE id = ?",
+                    (str(e)[:500], datetime.now(timezone.utc).isoformat(), vid),
+                )
+                self._conn.commit()
+                results.append({
+                    "video_id": vid, "status": "failed",
+                    "topic": row["topic"], "error": str(e)[:500],
+                })
+
+        return results
 
     # ── Stale-state recovery ────────────────────────────────────────────
 

@@ -326,6 +326,53 @@ def cmd_pipeline(args):
             ids = pipe.add_topics(topics)
             print(f"Added {len(ids)} topics")
 
+        elif args.pipeline_cmd == "add-storyboards":
+            from manimator.schema import Storyboard
+
+            entries = []
+            for sb_path in args.storyboard_files:
+                p = Path(sb_path)
+                if not p.exists():
+                    print(f"File not found: {p}")
+                    continue
+                if p.is_dir():
+                    json_files = sorted(p.glob("*.json"))
+                else:
+                    json_files = [p]
+
+                for jf in json_files:
+                    try:
+                        with open(jf) as f:
+                            sb = json.load(f)
+                        Storyboard(**sb)  # validate
+                        entries.append({
+                            "storyboard": sb,
+                            "domain": args.domain,
+                        })
+                    except Exception as e:
+                        print(f"Skipping {jf}: {e}")
+
+            if entries:
+                ids = pipe.add_storyboards(entries)
+                print(f"Imported {len(ids)} storyboards (ready to render)")
+            else:
+                print("No valid storyboards found")
+
+        elif args.pipeline_cmd == "render":
+            results = pipe.run_renders(
+                limit=args.limit,
+                upload=args.upload,
+                privacy=args.privacy,
+                narrate=args.narrate,
+                voice=args.voice,
+                music=args.music,
+            )
+            done = sum(1 for r in results if r["status"] == "done")
+            failed = sum(1 for r in results if r["status"] == "failed")
+            print(f"Render complete: {done} done, {failed} failed out of {len(results)}")
+            for r in results:
+                print(f"  [{r['status']:8s}] {r['topic']}")
+
         elif args.pipeline_cmd == "run":
             results = pipe.run_pipeline(
                 provider=args.provider,
@@ -498,7 +545,22 @@ def main():
     p_pipe_add.add_argument("--format", "-f", default="instagram_reel")
     p_pipe_add.add_argument("--theme", "-t", default="wong")
 
-    p_pipe_run = pipe_sub.add_parser("run", help="Run the pipeline")
+    p_pipe_addsb = pipe_sub.add_parser("add-storyboards",
+                                       help="Import pre-written storyboard JSONs (no LLM needed)")
+    p_pipe_addsb.add_argument("storyboard_files", nargs="+",
+                              help="JSON file(s) or directory of JSON files")
+    p_pipe_addsb.add_argument("--domain", "-d", default=None)
+
+    p_pipe_render = pipe_sub.add_parser("render", help="Render queued storyboards (no LLM needed)")
+    p_pipe_render.add_argument("--limit", type=int, default=5)
+    p_pipe_render.add_argument("--upload", action="store_true")
+    p_pipe_render.add_argument("--privacy", default="private",
+                               choices=["private", "unlisted", "public"])
+    p_pipe_render.add_argument("--narrate", action="store_true")
+    p_pipe_render.add_argument("--voice", default="aria")
+    p_pipe_render.add_argument("--music", default="")
+
+    p_pipe_run = pipe_sub.add_parser("run", help="Run the full pipeline (requires LLM API key)")
     p_pipe_run.add_argument("--provider", "-p", default="openai")
     p_pipe_run.add_argument("--model", "-m", default=None)
     p_pipe_run.add_argument("--api-key", default=None)

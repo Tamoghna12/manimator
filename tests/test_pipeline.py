@@ -300,6 +300,105 @@ class TestUploadQuota:
         assert pipe._uploads_today() == 1
 
 
+@pytest.fixture
+def sample_storyboard():
+    """A minimal valid storyboard dict."""
+    return {
+        "meta": {
+            "title": "Test Storyboard",
+            "color_theme": "wong",
+            "format": "instagram_reel",
+            "resolution": [1080, 1920],
+        },
+        "scenes": [
+            {"type": "title", "id": "intro", "title": "Hello", "subtitle": "World"},
+            {"type": "closing", "id": "end", "title": "Refs", "references": ["Doe (2024)"]},
+        ],
+    }
+
+
+class TestAddStoryboards:
+    def test_returns_uuids(self, pipe, sample_storyboard):
+        ids = pipe.add_storyboards([
+            {"storyboard": sample_storyboard},
+            {"storyboard": sample_storyboard, "domain": "biology_reel"},
+        ])
+        assert len(ids) == 2
+        assert all(len(i) == 36 for i in ids)
+
+    def test_storyboard_json_populated(self, pipe, sample_storyboard):
+        ids = pipe.add_storyboards([{"storyboard": sample_storyboard}])
+        v = pipe.get_video(ids[0])
+        assert v["status"] == "queued"
+        assert v["storyboard_json"] is not None
+        sb = json.loads(v["storyboard_json"])
+        assert sb["meta"]["title"] == "Test Storyboard"
+
+    def test_provider_set_to_manual(self, pipe, sample_storyboard):
+        ids = pipe.add_storyboards([{"storyboard": sample_storyboard}])
+        v = pipe.get_video(ids[0])
+        assert v["provider"] == "manual"
+
+    def test_metadata_from_storyboard_meta(self, pipe, sample_storyboard):
+        ids = pipe.add_storyboards([{"storyboard": sample_storyboard}])
+        v = pipe.get_video(ids[0])
+        assert v["topic"] == "Test Storyboard"
+        assert v["format"] == "instagram_reel"
+        assert v["theme"] == "wong"
+
+    def test_domain_override(self, pipe, sample_storyboard):
+        ids = pipe.add_storyboards([{"storyboard": sample_storyboard, "domain": "cs_reel"}])
+        v = pipe.get_video(ids[0])
+        assert v["domain"] == "cs_reel"
+
+
+class TestRunRenders:
+    @patch("manimator.pipeline.Pipeline._render_one")
+    def test_renders_queued_storyboards(self, mock_render, pipe, sample_storyboard):
+        mock_render.return_value = "/tmp/test.webm"
+        pipe.add_storyboards([{"storyboard": sample_storyboard}])
+
+        results = pipe.run_renders(limit=5)
+        assert len(results) == 1
+        assert results[0]["status"] == "done"
+        mock_render.assert_called_once()
+
+    @patch("manimator.pipeline.Pipeline._render_one")
+    def test_skips_videos_without_storyboard(self, mock_render, pipe):
+        """Videos queued without storyboard_json (from add_topics) are skipped."""
+        now = "2026-01-01T00:00:00"
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, created_at) VALUES (?, ?, 'queued', ?)",
+            ("v1", "topic only", now),
+        )
+        pipe._conn.commit()
+
+        results = pipe.run_renders(limit=5)
+        assert len(results) == 0
+        mock_render.assert_not_called()
+
+    @patch("manimator.pipeline.Pipeline._render_one")
+    def test_render_failure_recorded(self, mock_render, pipe, sample_storyboard):
+        mock_render.side_effect = RuntimeError("ffmpeg crashed")
+        pipe.add_storyboards([{"storyboard": sample_storyboard}])
+
+        results = pipe.run_renders(limit=5)
+        assert results[0]["status"] == "failed"
+        assert "ffmpeg" in results[0]["error"]
+
+    @patch("manimator.pipeline.Pipeline._render_one")
+    def test_respects_limit(self, mock_render, pipe, sample_storyboard):
+        mock_render.return_value = "/tmp/test.webm"
+        pipe.add_storyboards([
+            {"storyboard": sample_storyboard},
+            {"storyboard": sample_storyboard},
+            {"storyboard": sample_storyboard},
+        ])
+
+        results = pipe.run_renders(limit=1)
+        assert len(results) == 1
+
+
 class TestRetryFailed:
     def test_resets_failed_to_queued(self, pipe):
         now = "2026-01-01T00:00:00"
