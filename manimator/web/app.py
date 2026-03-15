@@ -199,7 +199,10 @@ def api_generate():
     Accepts topic, provider, model, api_key, and optional domain/structure/format/theme.
     API key is passed per-request from the browser and never logged or persisted.
     """
-    data = request.json
+    data = request.get_json(force=True, silent=True) or {}
+    log.info("Generate request: provider=%s model=%s topic=%s base_url=%s",
+             data.get("provider"), data.get("model"), data.get("topic", "")[:50], data.get("base_url"))
+
     topic = data.get("topic", "").strip()
     provider = data.get("provider", "openai")
     model = data.get("model") or None
@@ -228,12 +231,14 @@ def api_generate():
             theme=theme,
             base_url=base_url,
         )
+        log.info("Generate succeeded: %d scenes", len(result.get("scenes", [])))
         return jsonify(result)
     except ValueError as e:
+        log.warning("Generate ValueError: %s", e)
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         log.exception("LLM generation failed")
-        return jsonify({"error": f"Generation failed: {str(e)[:300]}"}), 500
+        return jsonify({"error": f"Generation failed: {str(e)[:500]}"}), 500
 
 
 @app.route("/api/providers", methods=["GET"])
