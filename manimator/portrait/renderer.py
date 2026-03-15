@@ -127,7 +127,10 @@ def capture_scene_frames(html_path: Path, frames_dir: Path,
     frame_ms = 1000.0 / fps
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        )
         page = browser.new_page(viewport={"width": width, "height": height})
 
         # Load page and immediately pause all animations
