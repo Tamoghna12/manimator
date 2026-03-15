@@ -193,22 +193,39 @@ def _call_zhipuai(prompt: str, model: str, api_key: str, **kwargs) -> str:
 
 
 def _call_ollama(prompt: str, model: str, api_key: str = "", base_url: str = "", **kwargs) -> str:
-    """Call Ollama local API. Uses OpenAI-compatible endpoint."""
+    """Call Ollama local API. Uses OpenAI-compatible endpoint with JSON mode."""
     from openai import OpenAI
 
     url = base_url or "http://localhost:11434/v1"
-    # Local models can be slow — use a long timeout
     client = OpenAI(api_key=api_key or "ollama", base_url=url, timeout=300)
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a scientific video storyboard generator. "
-             "Output ONLY valid JSON matching the requested schema. Do not include any explanation, "
-             "only output the raw JSON object."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
+
+    system = (
+        "You are a JSON generator. Your ONLY output must be a single raw JSON object. "
+        "No markdown, no code fences, no explanations, no comments. "
+        "Start your response with { and end with }."
     )
+
+    try:
+        # Try with JSON mode enforced (supported by most Ollama models)
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+            response_format={"type": "json_object"},
+        )
+    except Exception:
+        # Fallback: some older models don't support response_format
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+        )
     return response.choices[0].message.content
 
 

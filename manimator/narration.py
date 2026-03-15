@@ -288,9 +288,9 @@ def compute_element_delays(chunk_durations: list[float],
 async def _synthesize_edge(text: str, output_path: str,
                            voice: str = "en-US-AriaNeural",
                            rate: str = "-5%"):
-    """Synthesize speech using edge-tts."""
+    """Synthesize speech using edge-tts (30s timeout)."""
     communicate = edge_tts.Communicate(text, voice, rate=rate)
-    await communicate.save(output_path)
+    await asyncio.wait_for(communicate.save(output_path), timeout=30)
 
 
 def _synthesize_gtts(text: str, output_path: str):
