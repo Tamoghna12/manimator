@@ -43,7 +43,7 @@ _render_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="render")
 # In-memory job tracking
 JOBS = {}
 MAX_JOBS = 20
-WORK_DIR = Path("manimator_output")
+WORK_DIR = Path.cwd() / "manimator_output"
 WORK_DIR.mkdir(exist_ok=True)
 
 # Allowed values for user-controlled parameters
