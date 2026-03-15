@@ -12,6 +12,7 @@ google-api-python-client for users who don't need upload functionality.
 """
 
 import logging
+import os
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ def _get_credentials():
 
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         TOKEN_PATH.write_text(creds.to_json())
+        os.chmod(TOKEN_PATH, 0o600)
         log.info("YouTube credentials saved to %s", TOKEN_PATH)
 
     return creds

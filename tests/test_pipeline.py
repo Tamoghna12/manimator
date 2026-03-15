@@ -1,6 +1,7 @@
 """Tests for manimator.pipeline — batch pipeline with SQLite persistence."""
 
 import json
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -173,6 +174,132 @@ class TestRunPipeline:
         assert len(results) == 1
 
 
+class TestRenderFailure:
+    @patch("manimator.pipeline.Pipeline._generate_one")
+    @patch("manimator.pipeline.Pipeline._render_one")
+    def test_render_failure_records_error(self, mock_render, mock_gen, pipe, sample_topics):
+        """Subprocess render failure is recorded and batch continues."""
+        pipe.add_topics(sample_topics[:2])
+        mock_gen.return_value = {"meta": {"title": "T"}, "scenes": []}
+        mock_render.side_effect = [
+            RuntimeError("Render failed (exit 1): ffmpeg error"),
+            "/tmp/ok.webm",
+        ]
+        results = pipe.run_pipeline(provider="openai", limit=2)
+        assert results[0]["status"] == "failed"
+        assert "Render failed" in results[0]["error"]
+        assert results[1]["status"] == "done"
+
+    @patch("manimator.pipeline.Pipeline._generate_one")
+    @patch("manimator.pipeline.Pipeline._render_one")
+    @patch("manimator.pipeline.Pipeline._upload_one")
+    def test_upload_failure_records_error(self, mock_upload, mock_render, mock_gen, pipe, sample_topics):
+        """Upload failure is recorded; video still exists on disk."""
+        pipe.add_topics(sample_topics[:1])
+        mock_gen.return_value = {"meta": {"title": "T"}, "scenes": []}
+        mock_render.return_value = "/tmp/ok.webm"
+        mock_upload.side_effect = RuntimeError("YouTube quota exceeded")
+        results = pipe.run_pipeline(provider="openai", limit=1, upload=True)
+        assert results[0]["status"] == "failed"
+        assert "quota" in results[0]["error"].lower()
+
+
+class TestEmptyQueue:
+    @patch("manimator.pipeline.Pipeline._generate_one")
+    @patch("manimator.pipeline.Pipeline._render_one")
+    def test_empty_queue_returns_empty(self, mock_render, mock_gen, pipe):
+        """Running pipeline with no topics returns empty list, no errors."""
+        results = pipe.run_pipeline(provider="openai", limit=5)
+        assert results == []
+        mock_gen.assert_not_called()
+        mock_render.assert_not_called()
+
+
+class TestStaleRecovery:
+    def test_recovers_stale_generating(self, pipe):
+        """Videos stuck in 'generating' for >15 min get marked failed."""
+        stale_time = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat()
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, created_at) VALUES (?, ?, 'generating', ?)",
+            ("v1", "stale topic", stale_time),
+        )
+        pipe._conn.commit()
+
+        count = pipe.recover_stale()
+        assert count == 1
+        v = pipe.get_video("v1")
+        assert v["status"] == "failed"
+        assert "stale" in v["error"].lower()
+
+    def test_does_not_recover_recent(self, pipe):
+        """Videos in transient state for <15 min are left alone."""
+        recent = datetime.now(timezone.utc).isoformat()
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, created_at) VALUES (?, ?, 'rendering', ?)",
+            ("v2", "recent topic", recent),
+        )
+        pipe._conn.commit()
+
+        count = pipe.recover_stale()
+        assert count == 0
+        v = pipe.get_video("v2")
+        assert v["status"] == "rendering"
+
+    def test_does_not_touch_done_or_failed(self, pipe):
+        """Done and failed videos are never recovered."""
+        stale_time = (datetime.now(timezone.utc) - timedelta(minutes=60)).isoformat()
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, created_at) VALUES (?, ?, 'done', ?)",
+            ("v3", "done topic", stale_time),
+        )
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, created_at) VALUES (?, ?, 'failed', ?)",
+            ("v4", "failed topic", stale_time),
+        )
+        pipe._conn.commit()
+
+        count = pipe.recover_stale()
+        assert count == 0
+
+
+class TestUploadQuota:
+    def test_quota_check_passes_when_under_limit(self, pipe):
+        """No error when uploads today < limit."""
+        pipe._check_quota()  # Should not raise
+
+    def test_quota_check_raises_at_limit(self, pipe):
+        """RuntimeError when daily upload limit reached."""
+        today = datetime.now(timezone.utc).date().isoformat()
+        for i in range(6):
+            pipe._conn.execute(
+                "INSERT INTO videos (id, topic, status, youtube_id, created_at, completed_at) "
+                "VALUES (?, ?, 'done', ?, ?, ?)",
+                (f"v{i}", f"t{i}", f"yt_{i}", today, today),
+            )
+        pipe._conn.commit()
+
+        with pytest.raises(RuntimeError, match="quota"):
+            pipe._check_quota()
+
+    def test_uploads_today_counts_correctly(self, pipe):
+        today = datetime.now(timezone.utc).date().isoformat()
+        yesterday = (datetime.now(timezone.utc) - timedelta(days=1)).date().isoformat()
+        # Today's upload
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, youtube_id, created_at, completed_at) "
+            "VALUES (?, ?, 'done', ?, ?, ?)",
+            ("v1", "t1", "yt_1", today, today),
+        )
+        # Yesterday's upload — should not count
+        pipe._conn.execute(
+            "INSERT INTO videos (id, topic, status, youtube_id, created_at, completed_at) "
+            "VALUES (?, ?, 'done', ?, ?, ?)",
+            ("v2", "t2", "yt_2", yesterday, yesterday),
+        )
+        pipe._conn.commit()
+        assert pipe._uploads_today() == 1
+
+
 class TestRetryFailed:
     def test_resets_failed_to_queued(self, pipe):
         now = "2026-01-01T00:00:00"
@@ -183,8 +310,8 @@ class TestRetryFailed:
             )
         pipe._conn.commit()
 
-        # SQLite doesn't support LIMIT in UPDATE by default; check behavior
         count = pipe.retry_failed(limit=2)
-        # At minimum, some should be reset
+        assert count == 2
         status = pipe.get_status()
-        assert status["failed"] < 3 or count >= 0  # SQLite LIMIT in UPDATE may not work
+        assert status["failed"] == 1
+        assert status["queued"] == 2

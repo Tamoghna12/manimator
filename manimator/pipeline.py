@@ -11,7 +11,7 @@ import logging
 import subprocess
 import tempfile
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ class Pipeline:
             Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA_SQL)
 
     # ── Topic management ─────────────────────────────────────────────────
@@ -104,6 +105,57 @@ class Pipeline:
 
     # ── Pipeline execution ───────────────────────────────────────────────
 
+    # ── Stale-state recovery ────────────────────────────────────────────
+
+    STALE_MINUTES = 15
+
+    def recover_stale(self) -> int:
+        """Reset videos stuck in transient states (generating/rendering/uploading)
+        for longer than STALE_MINUTES back to 'failed' so retry_failed can pick them up.
+
+        Returns number of rows recovered.
+        """
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(minutes=self.STALE_MINUTES)
+        ).isoformat()
+        cur = self._conn.execute(
+            "UPDATE videos SET status = 'failed', "
+            "error = 'Recovered: stale state exceeded timeout' "
+            "WHERE status IN ('generating', 'rendering', 'uploading') "
+            "AND created_at < ?",
+            (cutoff,),
+        )
+        self._conn.commit()
+        count = cur.rowcount
+        if count:
+            log.warning("Recovered %d stale videos", count)
+        return count
+
+    # ── Upload quota tracking ────────────────────────────────────────────
+
+    DAILY_UPLOAD_LIMIT = 6  # YouTube default: ~1,600 units/upload, 10,000/day
+
+    def _uploads_today(self) -> int:
+        """Count uploads completed today (UTC)."""
+        today = datetime.now(timezone.utc).date().isoformat()
+        row = self._conn.execute(
+            "SELECT COUNT(*) as cnt FROM videos "
+            "WHERE youtube_id IS NOT NULL AND completed_at >= ?",
+            (today,),
+        ).fetchone()
+        return row["cnt"] if row else 0
+
+    def _check_quota(self) -> None:
+        """Raise RuntimeError if daily upload quota would be exceeded."""
+        used = self._uploads_today()
+        if used >= self.DAILY_UPLOAD_LIMIT:
+            raise RuntimeError(
+                f"YouTube daily upload quota reached ({used}/{self.DAILY_UPLOAD_LIMIT}). "
+                "Try again tomorrow or request a quota increase from Google Cloud Console."
+            )
+
+    # ── Pipeline execution ───────────────────────────────────────────────
+
     def run_pipeline(
         self,
         provider: str,
@@ -118,6 +170,9 @@ class Pipeline:
         music: str = "",
     ) -> list[dict]:
         """Process up to *limit* unused topics through generate → render → upload."""
+        # Recover any videos stuck in transient states from prior crashed runs
+        self.recover_stale()
+
         topics = self.list_topics(unused_only=True, limit=limit)
         results = []
 
@@ -251,6 +306,8 @@ class Pipeline:
 
     def _upload_one(self, vid, video_path, storyboard, privacy):
         """Upload rendered video to YouTube."""
+        self._check_quota()
+
         self._conn.execute("UPDATE videos SET status = 'uploading' WHERE id = ?", (vid,))
         self._conn.commit()
 

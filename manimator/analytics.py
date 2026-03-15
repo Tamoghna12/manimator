@@ -47,6 +47,7 @@ class Analytics:
             Path(self._db_path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
         self._init_metrics_table()
 
     def _init_metrics_table(self):
@@ -280,15 +281,22 @@ class Analytics:
         best_domain = max(domain_perf, key=lambda d: domain_perf[d]["avg_views"]) if domain_perf else None
         worst_domain = min(domain_perf, key=lambda d: domain_perf[d]["avg_views"]) if domain_perf else None
 
-        # Best posting day (day-of-week correlation — naive, not causal)
+        # Best posting day — uses only the earliest metric date per video
+        # (proxy for upload day) to avoid conflating accumulation days with
+        # posting day. This is still correlational, not causal; see Kohavi et al.
+        # (2020) Trustworthy Online Controlled Experiments, Cambridge UP.
         day_rows = self._conn.execute(
             "SELECT "
-            "  CASE CAST(strftime('%w', date) AS INTEGER) "
+            "  CASE CAST(strftime('%w', first_date) AS INTEGER) "
             "    WHEN 0 THEN 'Sunday' WHEN 1 THEN 'Monday' WHEN 2 THEN 'Tuesday' "
             "    WHEN 3 THEN 'Wednesday' WHEN 4 THEN 'Thursday' "
             "    WHEN 5 THEN 'Friday' WHEN 6 THEN 'Saturday' END as day_name, "
-            "  AVG(views) as avg_views "
-            "FROM metrics GROUP BY strftime('%w', date) ORDER BY avg_views DESC LIMIT 1"
+            "  AVG(first_day_views) as avg_views "
+            "FROM ("
+            "  SELECT video_id, MIN(date) as first_date, views as first_day_views "
+            "  FROM metrics GROUP BY video_id"
+            ") sub "
+            "GROUP BY strftime('%w', first_date) ORDER BY avg_views DESC LIMIT 1"
         ).fetchone()
         best_posting_day = day_rows["day_name"] if day_rows else None
 
