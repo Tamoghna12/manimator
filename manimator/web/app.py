@@ -2634,7 +2634,7 @@ async function generateWithAI() {
     const fmt = document.getElementById('metaFormat').value;
     const theme = document.getElementById('metaTheme').value;
 
-    if (!apiKey) {
+    if (!apiKey && provider !== 'ollama') {
         toast('Set your API key in Settings → AI Generation', 'error');
         switchTab(document.querySelectorAll('.tab')[2], 'settings');
         return;
