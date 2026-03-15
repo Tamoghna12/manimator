@@ -355,22 +355,35 @@ def api_render():
             if music and music not in ("", "none"):
                 cmd.extend(["--music", music])
 
-            log.info("Render started: job=%s format=%s narrate=%s music=%s", job_id, fmt, narrate, music)
-            result = subprocess.run(
-                cmd, capture_output=True, text=True,
-                cwd=str(Path.cwd()), timeout=600,  # 10 min timeout
+            log.info("Render cmd: %s", " ".join(cmd))
+            proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, cwd=str(Path.cwd()),
             )
-            JOBS[job_id]["log"] = result.stdout + result.stderr
 
-            if result.returncode == 0 and output_path.exists():
+            lines = []
+            for line in proc.stdout:
+                line = line.rstrip()
+                lines.append(line)
+                JOBS[job_id]["log"] = "\n".join(lines[-100:])  # keep last 100 lines
+                log.debug("Render[%s]: %s", job_id, line)
+                elapsed = time.time() - JOBS[job_id]["started"]
+                if elapsed > 600:
+                    proc.kill()
+                    raise subprocess.TimeoutExpired(cmd, 600)
+
+            proc.wait()
+
+            if proc.returncode == 0 and output_path.exists():
                 JOBS[job_id]["status"] = "done"
                 JOBS[job_id]["output"] = str(output_path)
                 JOBS[job_id]["size_mb"] = output_path.stat().st_size / (1024 * 1024)
                 log.info("Render done: job=%s size=%.1fMB", job_id, JOBS[job_id]["size_mb"])
             else:
                 JOBS[job_id]["status"] = "failed"
-                JOBS[job_id]["error"] = result.stderr[-500:] if result.stderr else "Unknown error"
-                log.error("Render failed: job=%s error=%s", job_id, JOBS[job_id]["error"][:200])
+                last_lines = "\n".join(lines[-30:])
+                JOBS[job_id]["error"] = last_lines or "Unknown error"
+                log.error("Render failed: job=%s returncode=%d\n%s", job_id, proc.returncode, last_lines)
         except subprocess.TimeoutExpired:
             JOBS[job_id]["status"] = "failed"
             JOBS[job_id]["error"] = "Render timed out after 10 minutes"
