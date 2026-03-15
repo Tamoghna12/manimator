@@ -134,6 +134,8 @@ python -m manimator.storyboard_cli generate "How CRISPR works" --provider openai
 
 Batch-generate videos from a topic queue. State persists in SQLite at `~/.local/share/manimator/pipeline.db`.
 
+#### With LLM (auto-generate storyboards)
+
 ```bash
 # Create a topics file (one topic per line, # for comments)
 cat > topics.txt << 'EOF'
@@ -157,6 +159,32 @@ python -m manimator.storyboard_cli pipeline status
 # List completed videos
 python -m manimator.storyboard_cli pipeline list --status done
 ```
+
+#### Without LLM (manual storyboards — no API keys needed)
+
+If you write storyboard JSONs by hand (e.g. with the web UI scaffold tool, or copied from an example), you can batch-render them without any LLM provider or API costs.
+
+```bash
+# Import one or more storyboard JSON files
+python -m manimator.storyboard_cli pipeline add-storyboards story1.json story2.json
+
+# Import an entire directory of JSONs
+python -m manimator.storyboard_cli pipeline add-storyboards ./storyboards/ --domain biology_reel
+
+# Render all queued storyboards (no LLM required)
+python -m manimator.storyboard_cli pipeline render --limit 10
+
+# Render and upload to YouTube
+python -m manimator.storyboard_cli pipeline render --limit 5 --upload --privacy private --narrate
+```
+
+**Workflow:**
+1. Use the web UI (`/`) to preview scenes and build a storyboard with the JSON editor
+2. Use `manimator-storyboard scaffold` to get a template and fill in your content manually
+3. `pipeline add-storyboards` validates each file (Pydantic schema check) and queues them
+4. `pipeline render` renders the queue — no LLM, no internet connection required
+
+This path is useful for research educators, conference presenters, or anyone who prefers full control over content without delegating to a language model.
 
 ### CLI — YouTube upload
 
@@ -264,14 +292,17 @@ SQLite-backed batch processor. Persists all state so runs can be interrupted and
 **Status lifecycle:**
 
 ```
-                    ┌─────────┐
-  topic (unused) ──▶│generating│──▶ rendering ──▶ uploading ──▶ done
-                    └─────────┘         │              │
-                                        ▼              ▼
-                                      failed         failed
-                                        │
-                                        ▼
-                                  retry_failed() ──▶ queued
+  LLM path:
+  topic (unused) ──▶ generating ──▶ rendering ──▶ uploading ──▶ done
+                          │               │              │
+                          ▼               ▼              ▼
+                        failed          failed         failed
+                          └──────────────┴──────────────┘
+                                         │
+                                   retry_failed() ──▶ queued
+
+  No-LLM path:
+  add_storyboards() ──▶ queued ──▶ rendering ──▶ [uploading] ──▶ done
 ```
 
 **Resilience features:**
@@ -317,8 +348,10 @@ views, likes, comments, shares, watch time (minutes), average view duration (sec
 | `/api/upload` | POST | Upload completed render to YouTube |
 | `/api/pipeline/status` | GET | Pipeline status counts |
 | `/api/pipeline/videos` | GET | List videos (optional `?status=done`) |
-| `/api/pipeline/add-topics` | POST | Add topics to queue |
-| `/api/pipeline/run` | POST | Trigger batch pipeline run |
+| `/api/pipeline/add-topics` | POST | Add topics to queue (LLM path) |
+| `/api/pipeline/run` | POST | Trigger batch LLM generate + render |
+| `/api/pipeline/add-storyboards` | POST | Import pre-written storyboard JSONs (no LLM) |
+| `/api/pipeline/render` | POST | Render queued storyboards (no LLM) |
 | `/api/analytics/summary` | GET | Analytics insights summary |
 | `/api/analytics/top` | GET | Top videos by metric |
 | `/api/analytics/sync` | POST | Sync metrics from YouTube |
@@ -348,7 +381,7 @@ manimator/
 │   ├── renderer.py        # Frame-by-frame capture + ffmpeg encoding
 │   └── orchestrator.py    # Portrait video CLI pipeline
 └── web/
-    ├── app.py             # Flask web UI + API (21 routes)
+    ├── app.py             # Flask web UI + API (23 routes)
     └── __main__.py        # Web server entry point
 ```
 
@@ -358,12 +391,18 @@ manimator/
 ┌──────────────────────────────────────────────────────────────────────┐
 │                        Content Engine                                │
 │                                                                      │
+│  ── LLM path ──────────────────────────────────────────────────────  │
 │  topics.txt ──▶ Pipeline.add_topics() ──▶ SQLite (topics table)     │
-│                                                                      │
 │  Pipeline.run_pipeline()                                             │
 │    ├── llm.generate_storyboard() ──▶ SQLite (storyboard_json)      │
 │    ├── subprocess (portrait/orchestrator) ──▶ renders/{id}.webm     │
 │    └── uploader.upload_short() ──▶ YouTube ──▶ SQLite (youtube_id)  │
+│                                                                      │
+│  ── No-LLM path (no API keys required) ───────────────────────────  │
+│  story.json ──▶ Pipeline.add_storyboards() ──▶ SQLite (queued)     │
+│  Pipeline.run_renders()                                              │
+│    ├── subprocess (portrait/orchestrator) ──▶ renders/{id}.webm     │
+│    └── [optional] uploader.upload_short() ──▶ YouTube               │
 │                                                                      │
 │  Analytics.sync_metrics() ──▶ YouTube Analytics API ──▶ SQLite      │
 │  Analytics.get_insights() ──▶ domain performance, top videos, CTR   │
@@ -376,7 +415,7 @@ manimator/
 # Install dev dependencies
 pip install -e ".[dev]"
 
-# Run tests (161 tests)
+# Run tests (174 tests)
 pytest tests/ -v
 
 # Lint
@@ -390,10 +429,10 @@ mypy manimator/ --ignore-missing-imports
 
 | Module | Tests | Coverage |
 |--------|-------|----------|
-| `pipeline.py` | 24 (unit) + e2e CLI | Topic CRUD, status, run with mocked LLM/render, stale recovery, quota guard, retry |
+| `pipeline.py` | 34 (unit) | Topic CRUD, status, LLM pipeline (mocked), no-LLM add_storyboards/run_renders, stale recovery, quota guard, retry |
 | `uploader.py` | 7 (unit) | Upload success/failure, privacy validation, title truncation, credentials |
 | `analytics.py` | 13 (unit) | Stats aggregation, top videos, domain performance, insights, sync |
-| `web/app.py` | 25 (route) | All 8 new API routes: validation, error paths, mock pipeline/analytics |
+| `web/app.py` | 29 (route) | All 10 new API routes: validation, error paths, mock pipeline/analytics |
 
 All tests use in-memory SQLite (`:memory:`) and mocked external services. No YouTube credentials required for testing.
 
