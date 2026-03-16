@@ -662,23 +662,38 @@ def get_example_storyboard(domain: str = "biology_reel") -> dict:
                     "callout": "The cell's own repair machinery fixes the cut."
                 },
                 {
+                    "type": "comparison_table", "id": "tech_compare",
+                    "header": "Genome Editing Technologies",
+                    "columns": ["Feature", "ZFN", "TALEN", "CRISPR"],
+                    "rows": [
+                        ["Design complexity", "High (protein engineering)", "Moderate (repeat assembly)", "Low (20-nt RNA guide)"],
+                        ["Cost per target", "$5,000+", "$1,000+", "<$100"],
+                        ["Multiplexing", "Not feasible", "Difficult", "Easy (multiple gRNAs)"],
+                        ["Off-target rate", "High", "Low", "Moderate (improvable)"],
+                        ["Time to design", "Weeks to months", "1-2 weeks", "1-2 days"]
+                    ],
+                    "callout": "CRISPR's ease of use made genome editing accessible to any lab."
+                },
+                {
                     "type": "bar_chart", "id": "stats",
                     "header": "Editing Efficiency",
                     "bars": [
-                        {"label": "Gene Knockout", "value": 95, "color_key": "blue"},
-                        {"label": "Gene Insert", "value": 40, "color_key": "green"},
-                        {"label": "Base Edit", "value": 75, "color_key": "orange"}
+                        {"label": "Gene Knockout (NHEJ)", "value": 95, "color_key": "blue"},
+                        {"label": "Gene Insert (HDR)", "value": 40, "color_key": "green"},
+                        {"label": "Base Editing", "value": 78, "color_key": "orange"},
+                        {"label": "Prime Editing", "value": 55, "color_key": "purple"}
                     ],
                     "value_suffix": "%",
-                    "callout": "First CRISPR therapy approved by FDA in 2023."
+                    "callout": "Casgevy, the first CRISPR therapy, was approved by FDA in Dec 2023."
                 },
                 {
                     "type": "closing", "id": "end",
                     "title": "Key References",
                     "references": [
-                        "Jinek et al. (2012) Science",
-                        "Doudna & Charpentier (2014) Science"
-                    ]
+                        "Jinek et al. (2012) Science 337, 816-821",
+                        "Doudna & Charpentier (2014) Science 346, 1258096"
+                    ],
+                    "cta_text": "Follow for more biotech explainers!"
                 }
             ]
         },
@@ -705,32 +720,49 @@ def get_example_storyboard(domain: str = "biology_reel") -> dict:
                     "callout": "65,000+ papers cite the original Transformer paper"
                 },
                 {
-                    "type": "flowchart", "id": "how",
-                    "header": "Core Mechanism",
-                    "stages": [
-                        {"label": "Token Embedding", "color_key": "blue"},
-                        {"label": "Self-Attention", "color_key": "orange"},
-                        {"label": "Feed-Forward", "color_key": "green"}
-                    ],
-                    "callout": "Multi-head attention lets the model focus on different relationships simultaneously."
+                    "type": "equation", "id": "attention_formula",
+                    "header": "Scaled Dot-Product Attention",
+                    "latex": "\\text{Attention}(Q,K,V) = \\text{softmax}\\!\\left(\\frac{QK^{T}}{\\sqrt{d_k}}\\right)V",
+                    "explanation": "Queries and keys are compared via dot product, scaled by sqrt(d_k) to prevent gradient vanishing, then softmax produces attention weights over values.",
+                    "callout": "Multi-head attention runs h parallel attention functions (h=8 in the original paper)."
                 },
                 {
-                    "type": "bar_chart", "id": "scale",
-                    "header": "Model Scale (Parameters)",
-                    "bars": [
-                        {"label": "BERT", "value": 340, "color_key": "blue"},
-                        {"label": "GPT-3", "value": 175000, "color_key": "orange"},
-                        {"label": "GPT-4", "value": 1800000, "color_key": "red"}
+                    "type": "two_panel", "id": "enc_vs_dec",
+                    "header": "Encoder vs Decoder",
+                    "left_title": "Encoder",
+                    "left_items": [
+                        "Bidirectional: attends to all positions",
+                        "Used in BERT, sentence embeddings",
+                        "Self-attention + feed-forward layers",
+                        "Good for classification and retrieval"
                     ],
-                    "value_suffix": "M",
-                    "callout": "Scaling laws show predictable improvement with more parameters."
+                    "right_title": "Decoder",
+                    "right_items": [
+                        "Causal: attends only to past tokens",
+                        "Used in GPT, LLaMA, code generation",
+                        "Masked self-attention + cross-attention",
+                        "Good for text generation and reasoning"
+                    ],
+                    "callout": "The original Transformer uses both; modern LLMs are decoder-only."
+                },
+                {
+                    "type": "pipeline_diagram", "id": "architecture",
+                    "header": "Transformer Forward Pass",
+                    "left_track": {"label": "Input Tokens", "sublabel": "Tokenized text + positional encoding"},
+                    "right_track": {"label": "Learned Embeddings", "sublabel": "d_model = 512 dimensions"},
+                    "center_block": {
+                        "label": "N x Transformer Blocks",
+                        "items": ["Multi-Head Attention", "Add & LayerNorm", "Feed-Forward Network", "Add & LayerNorm"]
+                    },
+                    "callout": "The original paper stacks N=6 identical blocks for both encoder and decoder."
                 },
                 {
                     "type": "closing", "id": "refs",
                     "references": [
-                        "Vaswani et al. (2017) NeurIPS",
-                        "Brown et al. (2020) NeurIPS"
-                    ]
+                        "Vaswani et al. (2017) Attention Is All You Need, NeurIPS",
+                        "Devlin et al. (2019) BERT: Pre-training of Deep Bidirectional Transformers, NAACL"
+                    ],
+                    "cta_text": "Follow for more AI architecture breakdowns!"
                 }
             ]
         },
@@ -747,42 +779,53 @@ def get_example_storyboard(domain: str = "biology_reel") -> dict:
                     "subtitle": "Probably not — here's why"
                 },
                 {
-                    "type": "bullet_list", "id": "what",
-                    "header": "What is Bayes' Theorem?",
+                    "type": "equation", "id": "bayes_formula",
+                    "header": "Bayes' Theorem",
+                    "latex": "P(A \\mid B) = \\frac{P(B \\mid A)\\, P(A)}{P(B)}",
+                    "explanation": "The probability of hypothesis A given evidence B equals the likelihood of B under A, times the prior probability of A, divided by the total probability of B.",
+                    "callout": "Published posthumously by Thomas Bayes in 1763."
+                },
+                {
+                    "type": "bullet_list", "id": "terms",
+                    "header": "Breaking Down the Formula",
                     "items": [
-                        "Updates your belief when you get new evidence",
-                        "Combines prior probability with test accuracy",
-                        "Foundation of spam filters, medical diagnosis, and AI"
+                        "P(A|B) — Posterior: your updated belief after seeing evidence",
+                        "P(B|A) — Likelihood: how probable the evidence is if A is true",
+                        "P(A) — Prior: your initial belief before any evidence",
+                        "P(B) — Evidence: total probability of observing B across all cases"
                     ],
-                    "callout": "Published by Thomas Bayes in 1763 — still revolutionary"
+                    "callout": "The key insight: rare events stay unlikely even with strong evidence."
                 },
                 {
-                    "type": "flowchart", "id": "how",
-                    "header": "How It Works",
-                    "stages": [
-                        {"label": "Prior Belief", "color_key": "blue"},
-                        {"label": "New Evidence", "color_key": "orange"},
-                        {"label": "Updated Belief", "color_key": "green"}
+                    "type": "scatter_plot", "id": "distributions",
+                    "header": "Prior vs Posterior Belief",
+                    "clusters": [
+                        {"label": "Prior (before test)", "center": [-1.5, 1.0], "n": 30, "spread": 0.8, "color_key": "blue"},
+                        {"label": "Posterior (after positive test)", "center": [1.5, 1.0], "n": 30, "spread": 0.4, "color_key": "red"},
+                        {"label": "Posterior (after negative test)", "center": [-2.0, -1.0], "n": 30, "spread": 0.3, "color_key": "green"}
                     ],
-                    "callout": "The posterior becomes your new prior as more data arrives."
+                    "axes": ["Belief Strength", "Probability Density"],
+                    "callout": "The posterior is narrower — evidence reduces uncertainty."
                 },
                 {
-                    "type": "bar_chart", "id": "example",
-                    "header": "Medical Test Example",
+                    "type": "bar_chart", "id": "medical_test",
+                    "header": "Medical Test: The Math",
                     "bars": [
-                        {"label": "Test Accuracy", "value": 99, "color_key": "green"},
-                        {"label": "Disease Prevalence", "value": 1, "color_key": "orange"},
-                        {"label": "Chance You're Actually Sick", "value": 50, "color_key": "red"}
+                        {"label": "Sensitivity (true positive)", "value": 99, "color_key": "green"},
+                        {"label": "Disease prevalence", "value": 1, "color_key": "orange"},
+                        {"label": "P(sick | positive test)", "value": 50, "color_key": "red"},
+                        {"label": "False positive rate", "value": 1, "color_key": "purple"}
                     ],
                     "value_suffix": "%",
-                    "callout": "Even a 99% accurate test is wrong half the time if the disease is rare."
+                    "callout": "With 1% prevalence and 1% false positive rate, half of positive results are wrong."
                 },
                 {
                     "type": "closing", "id": "refs",
                     "references": [
-                        "Bayes (1763) Phil. Trans. Royal Society",
-                        "McGrayne (2011) The Theory That Would Not Die"
-                    ]
+                        "Bayes (1763) An Essay towards Solving a Problem in the Doctrine of Chances, Phil. Trans.",
+                        "McGrayne (2011) The Theory That Would Not Die, Yale University Press"
+                    ],
+                    "cta_text": "Follow for more math in 60 seconds!"
                 }
             ]
         },

@@ -923,6 +923,9 @@ def equation_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -
     explanation = data.get("explanation", "")
     callout = data.get("callout", "")
 
+    # Escape latex for embedding in a JS string literal
+    latex_js = latex.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+
     css = f"""
     .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 100px 60px; justify-content: center; align-items: center; }}
@@ -933,10 +936,15 @@ def equation_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -
     .eq-box {{ background: {c['bg_card']}; border-radius: 26px; padding: 54px 40px;
                box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.08);
                border: 1px solid {c['border']};
-               opacity: 0; animation: popIn 0.7s 0.6s forwards; }}
-    .eq-text {{ font-size: 40px; color: {c['text_dark']};
-                font-family: 'JetBrains Mono', monospace; line-height: 1.6;
-                word-break: break-all; }}
+               opacity: 0; animation: popIn 0.7s 0.6s forwards;
+               overflow-x: auto; }}
+    .eq-text {{ font-size: 40px; color: {c['text_dark']}; line-height: 1.6;
+                display: flex; justify-content: center; align-items: center;
+                min-height: 60px; }}
+    .eq-text .katex {{ font-size: 44px; }}
+    .eq-text .katex-display {{ margin: 0; }}
+    .eq-fallback {{ font-family: 'JetBrains Mono', monospace; font-size: 36px;
+                     word-break: break-all; }}
     .explanation {{ font-size: 32px; color: {c['text_body']}; line-height: 1.55;
                     margin-top: 46px; opacity: 0; animation: fadeIn 0.7s 1.2s forwards; }}
     .callout-box {{ position: absolute; bottom: 100px; left: 60px; right: 60px;
@@ -957,12 +965,27 @@ def equation_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -
         <div class="eq-container">
             <div class="header">{header}</div>
             <div class="eq-box">
-                <div class="eq-text">{_esc(latex)}</div>
+                <div class="eq-text" id="equation"></div>
             </div>
             {"<div class='explanation'>" + _esc(explanation) + "</div>" if explanation else ""}
         </div>
         {"<div class='callout-box'><div class='callout-text'>" + _esc(callout) + "</div></div>" if callout else ""}
-    </div>"""
+    </div>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+    <script>
+    try {{
+        katex.render('{latex_js}', document.getElementById('equation'), {{
+            displayMode: true,
+            throwOnError: false,
+            maxSize: 500,
+            maxExpand: 1000
+        }});
+    }} catch(e) {{
+        document.getElementById('equation').innerHTML =
+            '<span class="eq-fallback">{_esc(latex)}</span>';
+    }}
+    </script>"""
 
     return _wrap_page(body, css, c["bg"])
 

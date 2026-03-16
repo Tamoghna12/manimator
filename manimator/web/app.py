@@ -713,6 +713,14 @@ def api_analytics_top():
         return jsonify({"error": str(e)}), 400
 
 
+@app.route("/api/analytics/domains", methods=["GET"])
+def api_analytics_domains():
+    """Return per-domain performance breakdown."""
+    analytics = _get_analytics()
+    days = int(request.args.get("days", 30))
+    return jsonify(analytics.get_domain_performance(days=days))
+
+
 @app.route("/api/analytics/sync", methods=["POST"])
 def api_analytics_sync():
     """Trigger a metrics sync from YouTube Analytics."""
@@ -2204,7 +2212,7 @@ textarea {
 <div class="modal-overlay" id="analyticsModal">
     <div class="modal" style="max-width:900px">
         <h2>Analytics</h2>
-        <p class="modal-subtitle">Performance summary across your videos.</p>
+        <p class="modal-subtitle">Real performance data from YouTube Analytics API. Sync to pull latest metrics.</p>
         <div id="analyticsSummary"><em>Loading...</em></div>
         <div style="margin-top:16px;text-align:right">
             <button class="btn" onclick="closeModal('analyticsModal')">Close</button>
@@ -3159,21 +3167,153 @@ async function loadPipelineVideos() {
 
 // ── Analytics ──
 async function loadAnalyticsSummary() {
+    const el = document.getElementById('analyticsSummary');
+    if (!el) return;
+
     try {
-        const resp = await fetch('/api/analytics/summary');
+        // Fetch summary + domain breakdown + top videos in parallel
+        const [summaryResp, domainsResp, topResp] = await Promise.all([
+            fetch('/api/analytics/summary'),
+            fetch('/api/analytics/domains?days=30'),
+            fetch('/api/analytics/top?metric=views&limit=5&days=30')
+        ]);
+        const data = await summaryResp.json();
+        const domains = await domainsResp.json();
+        const topVideos = await topResp.json();
+
+        const hasData = data.total_videos > 0;
+
+        if (!hasData) {
+            el.innerHTML = `
+                <div style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+                    <div style="font-size:36px;opacity:0.3;margin-bottom:12px">&#x1F4CA;</div>
+                    <div style="font-size:14px;font-weight:600;margin-bottom:6px;color:var(--text)">No analytics data yet</div>
+                    <div style="font-size:12px;line-height:1.6">
+                        Upload videos to YouTube, then click <strong>Sync</strong> to pull metrics.<br>
+                        Analytics shows real YouTube data — views, CTR, watch time.
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="syncAnalytics()" style="margin-top:16px">Sync from YouTube</button>
+                </div>`;
+            return;
+        }
+
+        // ── Summary Cards ──
+        const fmtNum = n => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : n;
+        let html = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px">
+            <div style="padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Total Views</div>
+                <div style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px">${fmtNum(data.total_views||0)}</div>
+            </div>
+            <div style="padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Videos</div>
+                <div style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px">${data.total_videos||0}</div>
+            </div>
+            <div style="padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Avg CTR</div>
+                <div style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px">${((data.avg_ctr||0)*100).toFixed(1)}%</div>
+            </div>
+            <div style="padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Avg Views/Video</div>
+                <div style="font-size:22px;font-weight:800;color:var(--navy);margin-top:4px">${fmtNum(Math.round(data.avg_views_per_video||0))}</div>
+            </div>
+            <div style="padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Best Day</div>
+                <div style="font-size:16px;font-weight:700;color:var(--navy);margin-top:6px">${data.best_posting_day||'-'}</div>
+            </div>
+            <div style="padding:14px;border-radius:10px;background:var(--bg-card);border:1px solid var(--border)">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Data Freshness</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-top:6px">${data.data_freshness ? new Date(data.data_freshness).toLocaleDateString() : '-'}</div>
+            </div>
+        </div>`;
+
+        // ── Domain Performance Bars ──
+        const domainEntries = Object.entries(domains);
+        if (domainEntries.length > 0) {
+            const maxViews = Math.max(...domainEntries.map(([,d]) => d.avg_views || 0), 1);
+            const domainColors = {
+                biology_reel: '#059669', biology_mechanism: '#10b981',
+                cs_reel: '#4338ca', cs_algorithm: '#4f6ef7',
+                math_reel: '#c2410c', math_concept: '#f97316',
+                paper_review: '#7c3aed'
+            };
+            html += `<div style="margin-bottom:20px">
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">Views by Domain (30 days)</div>`;
+            for (const [domain, perf] of domainEntries.sort((a,b) => (b[1].avg_views||0) - (a[1].avg_views||0))) {
+                const pct = Math.max(4, ((perf.avg_views||0) / maxViews) * 100);
+                const color = domainColors[domain] || 'var(--accent)';
+                html += `<div style="margin-bottom:8px">
+                    <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+                        <span style="font-weight:600;color:var(--text)">${domain.replace(/_/g,' ')}</span>
+                        <span style="color:var(--text-muted)">${fmtNum(Math.round(perf.avg_views||0))} avg · ${perf.count} videos · ${((perf.avg_ctr||0)*100).toFixed(1)}% CTR</span>
+                    </div>
+                    <div style="height:8px;background:var(--bg-card);border-radius:4px;overflow:hidden">
+                        <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width 0.5s"></div>
+                    </div>
+                </div>`;
+            }
+            html += `</div>`;
+        }
+
+        // ── Top Videos Table ──
+        if (Array.isArray(topVideos) && topVideos.length > 0) {
+            html += `<div>
+                <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted);margin-bottom:10px">Top Videos (30 days)</div>
+                <table style="width:100%;font-size:12px;border-collapse:collapse">
+                    <thead><tr style="border-bottom:1px solid var(--border)">
+                        <th style="text-align:left;padding:6px 8px;font-weight:600;color:var(--text-muted)">Topic</th>
+                        <th style="text-align:left;padding:6px 8px;font-weight:600;color:var(--text-muted)">Domain</th>
+                        <th style="text-align:right;padding:6px 8px;font-weight:600;color:var(--text-muted)">Views</th>
+                        <th style="text-align:center;padding:6px 8px;font-weight:600;color:var(--text-muted)">Link</th>
+                    </tr></thead><tbody>`;
+            for (const v of topVideos) {
+                html += `<tr style="border-bottom:1px solid var(--border-subtle)">
+                    <td style="padding:8px;font-weight:500;max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.topic||'-'}</td>
+                    <td style="padding:8px;color:var(--text-muted)">${(v.domain||'-').replace(/_/g,' ')}</td>
+                    <td style="padding:8px;text-align:right;font-weight:600;font-family:'JetBrains Mono',monospace">${fmtNum(v.total_views||0)}</td>
+                    <td style="padding:8px;text-align:center">${v.youtube_url ? '<a href="'+v.youtube_url+'" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600">Watch</a>' : '-'}</td>
+                </tr>`;
+            }
+            html += `</tbody></table></div>`;
+        }
+
+        // ── Sync Button ──
+        html += `<div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+            <button class="btn btn-sm" onclick="syncAnalytics()">Sync from YouTube</button>
+            <span id="syncStatus" style="font-size:11px;color:var(--text-muted)"></span>
+        </div>`;
+
+        el.innerHTML = html;
+    } catch(e) {
+        el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted)">
+            <div style="font-size:13px">Could not load analytics</div>
+            <div style="font-size:11px;margin-top:4px">${e.message || 'Unknown error'}</div>
+        </div>`;
+    }
+}
+
+async function syncAnalytics() {
+    const status = document.getElementById('syncStatus');
+    if (status) status.textContent = 'Syncing...';
+    try {
+        const resp = await fetch('/api/analytics/sync', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({days: 7})
+        });
         const data = await resp.json();
-        const el = document.getElementById('analyticsSummary');
-        if (!el) return;
-        el.innerHTML = `
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px">
-                <div class="card" style="padding:12px"><strong>Total Views</strong><br>${data.total_views||0}</div>
-                <div class="card" style="padding:12px"><strong>Videos</strong><br>${data.total_videos||0}</div>
-                <div class="card" style="padding:12px"><strong>Avg CTR</strong><br>${((data.avg_ctr||0)*100).toFixed(1)}%</div>
-                <div class="card" style="padding:12px"><strong>Best Domain</strong><br>${data.best_domain||'-'}</div>
-                <div class="card" style="padding:12px"><strong>Best Day</strong><br>${data.best_posting_day||'-'}</div>
-                <div class="card" style="padding:12px"><strong>Top Video</strong><br>${data.best_video?.topic||'-'}</div>
-            </div>`;
-    } catch(e) { /* ignore */ }
+        if (resp.ok) {
+            if (status) status.textContent = `Synced ${data.synced} metric rows`;
+            toast('Analytics synced', 'success');
+            loadAnalyticsSummary(); // Refresh the view
+        } else {
+            if (status) status.textContent = data.error || 'Sync failed';
+            toast('Sync failed: ' + (data.error || 'Unknown'), 'error');
+        }
+    } catch(e) {
+        if (status) status.textContent = 'Sync error';
+        toast('Sync error: ' + e.message, 'error');
+    }
 }
 
 // ── Toast ──
