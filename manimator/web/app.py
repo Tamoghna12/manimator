@@ -116,26 +116,56 @@ def api_scaffold():
     theme = data.get("theme", "wong")
     fmt = data.get("format", "instagram_reel")
 
+    dt = None
     if domain and domain in DOMAIN_TEMPLATES:
         dt = DOMAIN_TEMPLATES[domain]
-        structure = dt["structure"]
+        structure = dt.get("structure", structure)
         theme = dt.get("theme", theme)
 
-    struct = STRUCTURES.get(structure, STRUCTURES["explainer"])
-    scenes = []
+    # Use custom_scenes from domain template if available, else fall back to structure
+    if dt and "custom_scenes" in dt:
+        scene_defs = dt["custom_scenes"]
+    else:
+        struct = STRUCTURES.get(structure, STRUCTURES["explainer"])
+        scene_defs = struct["scenes"]
 
-    for i, s in enumerate(struct["scenes"]):
-        schema = SCENE_SCHEMAS.get(s["type"], {})
+    scaffold_content = dt.get("scaffold_content", {}) if dt else {}
+    scenes = []
+    # Track how many times each type appears (for multi-instance types like bullet_list)
+    type_counts = {}
+
+    for i, s in enumerate(scene_defs):
+        stype = s["type"]
+        schema = SCENE_SCHEMAS.get(stype, {})
         example = schema.get("example", {})
+
+        # Start with schema example as base
         scene = dict(example)
         scene["id"] = f"scene_{i}"
 
-        if s["type"] == "title":
+        # Apply domain-specific scaffold content
+        content = scaffold_content.get(stype)
+        if content is not None:
+            # Handle multiple instances of same type (e.g., two bullet_lists)
+            count = type_counts.get(stype, 0)
+            if isinstance(content, list):
+                if count < len(content):
+                    scene.update(content[count])
+                # else keep schema default
+            else:
+                if count == 0:
+                    scene.update(content)
+            type_counts[stype] = count + 1
+        else:
+            type_counts[stype] = type_counts.get(stype, 0) + 1
+
+        # Override title/hook with user's topic
+        if stype == "title":
             scene["title"] = topic
-            scene["subtitle"] = ""
-        elif s["type"] == "hook":
-            scene["hook_text"] = f"Did you know about {topic}?"
-            scene["subtitle"] = f"Here's how {topic} works"
+        elif stype == "hook":
+            if not dt:  # Only use generic text if no domain template
+                scene["hook_text"] = f"Did you know about {topic}?"
+                scene["subtitle"] = f"Here's how {topic} works"
 
         scenes.append(scene)
 
@@ -1892,8 +1922,12 @@ textarea {
             <div class="panel-section">Mathematics</div>
             <div class="template-grid" id="domainMathList"></div>
 
+            <!-- Domain Templates — Science -->
+            <div class="panel-section">Physics & Chemistry</div>
+            <div class="template-grid" id="domainSciList"></div>
+
             <!-- Domain Templates — General -->
-            <div class="panel-section">General</div>
+            <div class="panel-section">Economics & General</div>
             <div class="template-grid" id="domainGenList"></div>
 
             <!-- Ready-to-Render Examples -->
@@ -2267,14 +2301,16 @@ const DOMAIN_CATEGORIES = {
     bio: ['biology_mechanism', 'biology_reel'],
     cs: ['cs_algorithm', 'cs_reel'],
     math: ['math_concept', 'math_reel'],
-    gen: ['paper_review'],
+    sci: ['physics_reel', 'chemistry_reel'],
+    gen: ['economics_reel', 'paper_review'],
 };
 
 const DOMAIN_ICONS = {
     biology_mechanism: 'B', biology_reel: 'B',
     cs_algorithm: 'C', cs_reel: 'C',
     math_concept: 'M', math_reel: 'M',
-    paper_review: 'P',
+    physics_reel: 'P', chemistry_reel: 'C',
+    economics_reel: 'E', paper_review: 'R',
 };
 
 const EXAMPLE_ICONS = {
