@@ -741,39 +741,48 @@ HTML_TEMPLATE = r"""
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    --bg: #0c0f1a;
-    --bg-raised: #131827;
-    --bg-card: #1a2035;
-    --bg-card-hover: #222942;
-    --bg-input: #1e2540;
-    --border: #2a3355;
-    --border-subtle: #1e2845;
-    --border-focus: #3B82F6;
-    --text: #edf2f8;
-    --text-secondary: #b0bdd4;
-    --text-muted: #607098;
-    --accent: #3B82F6;
-    --accent-hover: #60A5FA;
-    --accent-dim: rgba(59,130,246,0.12);
-    --accent-glow: rgba(59,130,246,0.30);
-    --green: #34d399;
-    --green-dim: rgba(52,211,153,0.12);
-    --orange: #f59e0b;
-    --orange-dim: rgba(245,158,11,0.12);
+    /* ── Light theme inspired by OpenReel: clean whites, deep navy, coral CTAs ── */
+    --bg: #f5f7fa;
+    --bg-raised: #ffffff;
+    --bg-card: #f0f2f7;
+    --bg-card-hover: #e8ebf2;
+    --bg-input: #f0f2f7;
+    --border: #dfe3ec;
+    --border-subtle: #e8ebf2;
+    --border-focus: #4f6ef7;
+    --text: #1a1f36;
+    --text-secondary: #4a5578;
+    --text-muted: #8892a8;
+    --accent: #4f6ef7;
+    --accent-hover: #6b84ff;
+    --accent-dim: rgba(79,110,247,0.08);
+    --accent-glow: rgba(79,110,247,0.20);
+    --green: #10b981;
+    --green-dim: rgba(16,185,129,0.08);
+    --orange: #f97316;
+    --orange-dim: rgba(249,115,22,0.08);
     --red: #ef4444;
-    --red-dim: rgba(239,68,68,0.12);
-    --purple: #a78bfa;
-    --purple-dim: rgba(167,139,250,0.12);
-    --cyan: #22d3ee;
-    --cyan-dim: rgba(34,211,238,0.12);
-    --pink: #f472b6;
-    --pink-dim: rgba(244,114,182,0.12);
+    --red-dim: rgba(239,68,68,0.08);
+    --purple: #8b5cf6;
+    --purple-dim: rgba(139,92,246,0.08);
+    --cyan: #06b6d4;
+    --cyan-dim: rgba(6,182,212,0.08);
+    --pink: #ec4899;
+    --pink-dim: rgba(236,72,153,0.08);
+    /* ── CTA / warm accent ── */
+    --cta: #ff6b4a;
+    --cta-hover: #ff8266;
+    --cta-dim: rgba(255,107,74,0.10);
+    --cta-glow: rgba(255,107,74,0.25);
+    /* ── Deep navy for contrast elements ── */
+    --navy: #1a1f36;
+    --navy-light: #2d3452;
     --radius: 12px;
     --radius-sm: 8px;
     --radius-lg: 16px;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
-    --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+    --shadow-sm: 0 1px 3px rgba(26,31,54,0.06);
+    --shadow-md: 0 4px 16px rgba(26,31,54,0.08);
+    --shadow-lg: 0 8px 32px rgba(26,31,54,0.12);
     --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
@@ -788,9 +797,9 @@ body {
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #c5cad8; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #a0a8bc; }
 
 /* ── Grid Layout ── */
 .app {
@@ -823,6 +832,7 @@ body {
     height: 52px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-raised);
+    box-shadow: 0 1px 4px rgba(26,31,54,0.06);
     z-index: 10;
 }
 
@@ -875,21 +885,21 @@ body {
 .toolbar-brand .logo {
     width: 28px; height: 28px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+    background: linear-gradient(135deg, var(--navy), var(--cta));
     display: flex; align-items: center; justify-content: center;
     font-size: 14px; font-weight: 800; color: white;
-    box-shadow: 0 2px 8px var(--accent-glow);
+    box-shadow: 0 2px 8px var(--cta-glow);
     flex-shrink: 0;
 }
 .toolbar-brand span {
     font-size: 15px; font-weight: 800;
-    background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
 .toolbar-title {
-    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    font-size: 13px; font-weight: 600; color: var(--navy);
     max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 4px 10px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border);
+    padding: 4px 10px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border);
 }
 .toolbar-group { display: flex; gap: 6px; align-items: center; }
 .toolbar-progress {
@@ -898,7 +908,7 @@ body {
 }
 .toolbar-progress .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--purple));
+    background: linear-gradient(90deg, var(--accent), var(--cta));
     border-radius: 2px;
     animation: indeterminate 1.8s ease-in-out infinite;
 }
@@ -927,8 +937,8 @@ body {
     user-select: none;
 }
 
-.tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.02); }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); background: linear-gradient(180deg, var(--accent-dim), transparent); box-shadow: inset 0 -2px 8px var(--accent-dim); }
+.tab:hover { color: var(--text-secondary); background: var(--bg-card); }
+.tab.active { color: var(--cta); border-bottom-color: var(--cta); background: linear-gradient(180deg, var(--cta-dim), transparent); }
 
 /* ── Tab Transitions ── */
 .tab-content { animation: tabFadeIn 0.2s ease-out; }
@@ -957,7 +967,7 @@ body {
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    border-bottom: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border);
     background: var(--bg-raised);
 }
 
@@ -968,8 +978,8 @@ body {
     overflow: hidden;
     border-radius: 20px;
     border: 2px solid var(--border);
-    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04), 0 0 60px rgba(59,130,246,0.08);
-    background: repeating-conic-gradient(var(--bg-card) 0% 25%, var(--bg-raised) 0% 50%) 50% / 12px 12px;
+    box-shadow: 0 8px 40px rgba(26,31,54,0.12), 0 0 0 1px var(--border);
+    background: repeating-conic-gradient(#e8ebf2 0% 25%, #ffffff 0% 50%) 50% / 12px 12px;
     flex-shrink: 0;
 }
 
@@ -1035,8 +1045,8 @@ body {
     transition: var(--transition);
     user-select: none;
 }
-.right-panel-tab:hover { color: var(--text-secondary); }
-.right-panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+.right-panel-tab:hover { color: var(--text-secondary); background: var(--bg-card); }
+.right-panel-tab.active { color: var(--cta); border-bottom-color: var(--cta); background: var(--cta-dim); }
 
 .right-panel-body {
     flex: 1;
@@ -1056,8 +1066,8 @@ body {
     flex: 1;
     width: 100%;
     padding: 12px;
-    background: var(--bg);
-    color: var(--text);
+    background: #fafbfd;
+    color: var(--navy);
     border: none;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
@@ -1079,8 +1089,8 @@ body {
     flex: 1;
     width: 100%;
     padding: 12px;
-    background: var(--bg);
-    color: var(--text);
+    background: #fafbfd;
+    color: var(--navy);
     border: none;
     font-family: 'JetBrains Mono', monospace;
     font-size: 11px;
@@ -1131,13 +1141,14 @@ body {
     user-select: none;
 }
 .timeline-card:hover {
-    border-color: var(--accent-hover);
-    background: var(--bg-card-hover);
+    border-color: var(--accent);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-sm);
 }
 .timeline-card.active {
-    border-color: var(--accent);
-    background: var(--accent-dim);
-    box-shadow: 0 0 12px var(--accent-glow);
+    border-color: var(--cta);
+    background: var(--cta-dim);
+    box-shadow: 0 2px 12px var(--cta-glow);
 }
 .timeline-card.dragging { opacity: 0.4; }
 .timeline-card.drag-over { border-left: 3px solid var(--accent); }
@@ -1146,7 +1157,7 @@ body {
     font-size: 9px; font-weight: 700; color: var(--text-muted);
     font-family: 'JetBrains Mono', monospace;
 }
-.timeline-card.active .tc-num { color: var(--accent); }
+.timeline-card.active .tc-num { color: var(--cta); }
 
 .timeline-card .tc-type {
     font-size: 9px; font-weight: 700;
@@ -1189,7 +1200,7 @@ body {
     font-size: 20px;
     font-weight: 300;
 }
-.timeline-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.timeline-add:hover { border-color: var(--cta); color: var(--cta); background: var(--cta-dim); }
 
 .panel-section {
     padding: 14px 16px 6px;
@@ -1226,12 +1237,13 @@ body {
 }
 
 .template-card:hover {
-    background: var(--bg-card-hover);
+    background: var(--bg-raised);
     border-color: var(--border);
+    box-shadow: var(--shadow-sm);
 }
 .template-card.active {
-    background: var(--accent-dim);
-    border-color: var(--accent);
+    background: var(--cta-dim);
+    border-color: var(--cta);
 }
 
 .template-card .tc-header {
@@ -1280,14 +1292,14 @@ body {
 }
 
 /* Domain-specific colors */
-.domain-bio .tc-icon { background: var(--green-dim); color: var(--green); }
-.domain-bio .tc-tag { background: var(--green-dim); color: var(--green); }
-.domain-cs .tc-icon { background: var(--accent-dim); color: var(--accent); }
-.domain-cs .tc-tag { background: var(--accent-dim); color: var(--accent); }
-.domain-math .tc-icon { background: var(--orange-dim); color: var(--orange); }
-.domain-math .tc-tag { background: var(--orange-dim); color: var(--orange); }
-.domain-gen .tc-icon { background: var(--purple-dim); color: var(--purple); }
-.domain-gen .tc-tag { background: var(--purple-dim); color: var(--purple); }
+.domain-bio .tc-icon { background: rgba(16,185,129,0.12); color: #059669; }
+.domain-bio .tc-tag { background: rgba(16,185,129,0.12); color: #059669; }
+.domain-cs .tc-icon { background: rgba(79,110,247,0.10); color: #4338ca; }
+.domain-cs .tc-tag { background: rgba(79,110,247,0.10); color: #4338ca; }
+.domain-math .tc-icon { background: rgba(249,115,22,0.10); color: #c2410c; }
+.domain-math .tc-tag { background: rgba(249,115,22,0.10); color: #c2410c; }
+.domain-gen .tc-icon { background: rgba(139,92,246,0.10); color: #7c3aed; }
+.domain-gen .tc-tag { background: rgba(139,92,246,0.10); color: #7c3aed; }
 
 /* ── Quick Start ── */
 .quick-start {
@@ -1323,7 +1335,8 @@ body {
 
 .structure-card:hover {
     border-color: var(--accent);
-    background: var(--accent-dim);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
 }
 
@@ -1374,7 +1387,8 @@ body {
 
 .example-card:hover {
     border-color: var(--green);
-    background: var(--green-dim);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
 }
 
@@ -1424,13 +1438,13 @@ body {
 .btn:active { transform: scale(0.97); }
 
 .btn-primary {
-    background: linear-gradient(135deg, #3B82F6, #6366F1);
-    border-color: #3B82F6;
+    background: linear-gradient(135deg, var(--cta), #ff8855);
+    border-color: var(--cta);
     color: white;
-    box-shadow: 0 2px 12px rgba(59,130,246,0.35);
+    box-shadow: 0 2px 12px var(--cta-glow);
 }
 
-.btn-primary:hover { background: linear-gradient(135deg, #60A5FA, #818CF8); box-shadow: 0 4px 16px rgba(59,130,246,0.45); }
+.btn-primary:hover { background: linear-gradient(135deg, var(--cta-hover), #ffa077); box-shadow: 0 4px 16px var(--cta-glow); }
 
 .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: 6px; }
 
@@ -1450,7 +1464,7 @@ body {
     border-color: transparent;
     color: var(--text-muted);
 }
-.btn-ghost:hover { color: var(--text); background: var(--bg-card-hover); }
+.btn-ghost:hover { color: var(--text); background: var(--bg-card); }
 
 /* ── Inputs ── */
 .form-group { margin-bottom: 14px; }
@@ -1479,7 +1493,7 @@ input[type="text"], input[type="number"], select, textarea {
 
 input:focus, select:focus, textarea:focus {
     outline: none;
-    border-color: var(--border-focus);
+    border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-dim);
 }
 
@@ -1538,8 +1552,8 @@ textarea {
 .modal-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
-    backdrop-filter: blur(4px);
+    background: rgba(26,31,54,0.40);
+    backdrop-filter: blur(8px);
     display: none;
     align-items: center;
     justify-content: center;
@@ -1549,7 +1563,7 @@ textarea {
 .modal-overlay.show { display: flex; }
 
 .modal {
-    background: var(--bg-card);
+    background: var(--bg-raised);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 28px;
@@ -1557,7 +1571,7 @@ textarea {
     max-width: 760px;
     max-height: 85vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 24px 64px rgba(26,31,54,0.18);
 }
 
 .modal h2 {
@@ -1594,7 +1608,7 @@ textarea {
 .guide-section h3 .step-num {
     width: 24px; height: 24px;
     border-radius: 8px;
-    background: var(--accent);
+    background: var(--navy);
     color: white;
     font-size: 12px;
     display: inline-flex; align-items: center; justify-content: center;
@@ -1623,8 +1637,8 @@ textarea {
     font-size: 11px;
     padding: 2px 6px;
     border-radius: 4px;
-    background: var(--bg-input);
-    color: var(--accent);
+    background: rgba(79,110,247,0.08);
+    color: #4338ca;
 }
 
 .guide-card .tip {
@@ -1745,7 +1759,8 @@ textarea {
 
 .scene-type-card:hover {
     border-color: var(--accent);
-    background: var(--accent-dim);
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-sm);
     transform: translateY(-1px);
 }
 
@@ -1781,8 +1796,8 @@ textarea {
 }
 
 .toast.show { opacity: 1; transform: translateY(0); }
-.toast.success { border-color: var(--green); color: var(--green); background: var(--bg-card); }
-.toast.error { border-color: var(--red); color: var(--red); background: var(--bg-card); }
+.toast.success { border-color: var(--green); color: #059669; background: var(--bg-raised); }
+.toast.error { border-color: var(--red); color: var(--red); background: var(--bg-raised); }
 
 /* ── Toolbar Separator ── */
 .toolbar-sep {
@@ -1848,7 +1863,7 @@ textarea {
                         <button class="btn btn-sm" onclick="showPromptModal()" title="LLM prompt">Prompt</button>
                     </div>
                     <div style="margin-top:6px">
-                        <button class="btn btn-primary btn-sm" onclick="generateWithAI()" style="width:100%;background:var(--purple);border-color:var(--purple)" title="Generate with AI">AI Generate</button>
+                        <button class="btn btn-primary btn-sm" onclick="generateWithAI()" style="width:100%;background:linear-gradient(135deg, var(--accent), var(--purple));border-color:var(--accent)" title="Generate with AI">AI Generate</button>
                     </div>
                 </div>
             </div>
