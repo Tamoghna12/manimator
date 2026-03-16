@@ -6,8 +6,11 @@ DB default location: ~/.local/share/manimator/pipeline.db
 Renders to: ~/.local/share/manimator/renders/
 """
 
+import csv
+import io
 import json
 import logging
+import re
 import subprocess
 import tempfile
 import uuid
@@ -23,10 +26,12 @@ _SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS topics (
     id TEXT PRIMARY KEY,
     topic TEXT NOT NULL,
+    category TEXT,
     domain TEXT,
     structure TEXT,
     format TEXT,
     theme TEXT,
+    voice TEXT,
     priority INTEGER DEFAULT 0,
     used INTEGER DEFAULT 0,
     created_at TEXT NOT NULL
@@ -35,12 +40,14 @@ CREATE TABLE IF NOT EXISTS topics (
 CREATE TABLE IF NOT EXISTS videos (
     id TEXT PRIMARY KEY,
     topic TEXT,
+    category TEXT,
     provider TEXT,
     model TEXT,
     domain TEXT,
     structure TEXT,
     format TEXT,
     theme TEXT,
+    voice TEXT,
     status TEXT NOT NULL DEFAULT 'queued',
     storyboard_json TEXT,
     video_path TEXT,
@@ -51,6 +58,100 @@ CREATE TABLE IF NOT EXISTS videos (
     error TEXT
 );
 """
+
+# ── CSV bulk import ───────────────────────────────────────────────────────────
+
+_VALID_FORMATS = {
+    "instagram_reel", "tiktok", "youtube_short", "instagram_square",
+    "presentation", "linkedin", "linkedin_square",
+}
+_VALID_THEMES = {"wong", "npg", "tol_bright"}
+_VALID_VOICES = {"aria", "guy", "jenny", "davis", "andrew", "emma"}
+_VALID_STRUCTURES = {"explainer", "short", "social_reel", "data_heavy", "tutorial"}
+
+
+def _slugify(text: str) -> str:
+    """Convert text to a safe directory name."""
+    text = text.lower().strip()
+    text = re.sub(r"[^\w\s-]", "", text)
+    return re.sub(r"[\s_-]+", "_", text)
+
+
+def parse_csv(csv_text: str) -> tuple[list[dict], list[dict]]:
+    """Parse CSV text into (topics, errors).
+
+    Expected columns (case-insensitive, all optional except ``topic``):
+        topic, category, domain, structure, format, theme, voice, priority
+
+    Returns:
+        topics: list of validated topic dicts ready for Pipeline.add_topics()
+        errors: list of {"row": int, "error": str} for skipped rows
+    """
+    reader = csv.DictReader(io.StringIO(csv_text.strip()))
+    # Normalise header names to lowercase
+    if reader.fieldnames is None:
+        return [], [{"row": 1, "error": "Empty or headerless CSV"}]
+
+    topics: list[dict] = []
+    errors: list[dict] = []
+
+    for row_num, raw in enumerate(reader, start=2):
+        row = {k.strip().lower(): (v or "").strip() for k, v in raw.items()}
+        topic = row.get("topic", "").strip()
+        if not topic or topic.startswith("#"):
+            continue
+
+        entry: dict = {"topic": topic}
+        row_errors: list[str] = []
+
+        # category — free text, becomes a subdirectory name
+        if row.get("category"):
+            entry["category"] = row["category"]
+
+        # domain — free text (validated loosely at LLM call time)
+        entry["domain"] = row.get("domain") or None
+
+        # structure
+        structure = row.get("structure") or "social_reel"
+        if structure not in _VALID_STRUCTURES:
+            row_errors.append(f"unknown structure '{structure}' — using social_reel")
+            structure = "social_reel"
+        entry["structure"] = structure
+
+        # format
+        fmt = row.get("format") or "instagram_reel"
+        if fmt not in _VALID_FORMATS:
+            row_errors.append(f"unknown format '{fmt}' — using instagram_reel")
+            fmt = "instagram_reel"
+        entry["format"] = fmt
+
+        # theme
+        theme = row.get("theme") or "wong"
+        if theme not in _VALID_THEMES:
+            row_errors.append(f"unknown theme '{theme}' — using wong")
+            theme = "wong"
+        entry["theme"] = theme
+
+        # voice
+        voice = row.get("voice") or "aria"
+        if voice not in _VALID_VOICES:
+            row_errors.append(f"unknown voice '{voice}' — using aria")
+            voice = "aria"
+        entry["voice"] = voice
+
+        # priority
+        try:
+            entry["priority"] = int(row.get("priority") or "0")
+        except ValueError:
+            row_errors.append("priority must be an integer — using 0")
+            entry["priority"] = 0
+
+        topics.append(entry)
+        if row_errors:
+            errors.append({"row": row_num, "topic": topic,
+                           "warnings": row_errors})
+
+    return topics, errors
 
 
 class Pipeline:
@@ -66,26 +167,48 @@ class Pipeline:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA_SQL)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after initial schema (idempotent)."""
+        new_cols = [
+            ("topics", "category TEXT"),
+            ("topics", "voice TEXT"),
+            ("videos", "category TEXT"),
+            ("videos", "voice TEXT"),
+        ]
+        for table, col_def in new_cols:
+            col_name = col_def.split()[0]
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {col_def}"
+                )
+            except Exception:
+                pass  # column already exists
+        self._conn.commit()
 
     # ── Topic management ─────────────────────────────────────────────────
 
     def add_topics(self, topics: list[dict]) -> list[str]:
-        """Bulk-insert topics. Each dict may have: topic, domain, structure,
-        format, theme, priority. Returns list of generated UUIDs."""
+        """Bulk-insert topics. Each dict may have: topic, category, domain,
+        structure, format, theme, voice, priority. Returns list of UUIDs."""
         ids = []
         now = datetime.now(timezone.utc).isoformat()
         for t in topics:
             tid = str(uuid.uuid4())
             self._conn.execute(
-                "INSERT INTO topics (id, topic, domain, structure, format, theme, priority, used, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)",
+                "INSERT INTO topics "
+                "(id, topic, category, domain, structure, format, theme, voice, priority, used, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)",
                 (
                     tid,
                     t["topic"],
+                    t.get("category"),
                     t.get("domain"),
                     t.get("structure", "explainer"),
                     t.get("format", "instagram_reel"),
                     t.get("theme", "wong"),
+                    t.get("voice"),
                     t.get("priority", 0),
                     now,
                 ),
@@ -171,8 +294,9 @@ class Pipeline:
                 "theme": row["theme"],
             }
 
+            effective_voice = row.get("voice") or voice
             try:
-                video_path = self._render_one(vid, storyboard, topic_row, narrate, voice, music)
+                video_path = self._render_one(vid, storyboard, topic_row, narrate, effective_voice, music)
 
                 youtube_id = youtube_url = None
                 if upload:
@@ -282,28 +406,34 @@ class Pipeline:
 
             # Create video row
             self._conn.execute(
-                "INSERT INTO videos (id, topic, provider, model, domain, structure, format, theme, "
-                "status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'generating', ?)",
+                "INSERT INTO videos "
+                "(id, topic, category, provider, model, domain, structure, format, theme, voice, "
+                "status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'generating', ?)",
                 (
                     vid,
                     topic_row["topic"],
+                    topic_row.get("category"),
                     provider,
                     model,
                     topic_row["domain"],
                     topic_row["structure"],
                     topic_row["format"],
                     topic_row["theme"],
+                    topic_row.get("voice"),
                     now,
                 ),
             )
             self._conn.commit()
+
+            # Per-topic voice overrides the run-level default
+            effective_voice = topic_row.get("voice") or voice
 
             try:
                 storyboard = self._generate_one(
                     vid, topic_row, provider, model, api_key, base_url
                 )
                 video_path = self._render_one(
-                    vid, storyboard, topic_row, narrate, voice, music
+                    vid, storyboard, topic_row, narrate, effective_voice, music
                 )
                 youtube_id = youtube_url = None
                 if upload:
@@ -356,12 +486,18 @@ class Pipeline:
         return storyboard
 
     def _render_one(self, vid, storyboard, topic_row, narrate, voice, music):
-        """Render storyboard to video file via subprocess."""
+        """Render storyboard to video file via subprocess.
+
+        Output is placed in RENDER_DIR/{category}/{vid}.webm when a category
+        is set, otherwise flat in RENDER_DIR/{vid}.webm.
+        """
         self._conn.execute("UPDATE videos SET status = 'rendering' WHERE id = ?", (vid,))
         self._conn.commit()
 
-        RENDER_DIR.mkdir(parents=True, exist_ok=True)
-        output_path = RENDER_DIR / f"{vid}.webm"
+        category = topic_row.get("category") or ""
+        out_dir = RENDER_DIR / _slugify(category) if category else RENDER_DIR
+        out_dir.mkdir(parents=True, exist_ok=True)
+        output_path = out_dir / f"{vid}.webm"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, dir=str(RENDER_DIR)

@@ -534,6 +534,60 @@ def api_pipeline_add_topics():
     return jsonify({"added": len(ids), "ids": ids})
 
 
+@app.route("/api/pipeline/import-csv", methods=["POST"])
+def api_pipeline_import_csv():
+    """Parse a CSV of topics and optionally add them to the pipeline.
+
+    Accepts multipart/form-data with a ``file`` field, or JSON body with
+    a ``csv_text`` field.
+
+    Query param ``action``:
+      - ``preview`` (default) — parse and return rows without adding
+      - ``import``            — parse and add to pipeline, return IDs
+    """
+    from manimator.pipeline import parse_csv as _parse_csv
+
+    # Get CSV text from file upload or JSON body
+    if "file" in request.files:
+        f = request.files["file"]
+        csv_text = f.read().decode("utf-8", errors="replace")
+    else:
+        body = request.get_json(force=True, silent=True) or {}
+        csv_text = body.get("csv_text", "")
+
+    if not csv_text.strip():
+        return jsonify({"error": "No CSV data provided"}), 400
+
+    try:
+        topics, warnings = _parse_csv(csv_text)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    if not topics:
+        return jsonify({"error": "No valid topics found in CSV", "warnings": warnings}), 400
+
+    action = request.args.get("action", "preview")
+    if action == "import":
+        pipe = _get_pipeline()
+        ids = pipe.add_topics(topics)
+        return jsonify({
+            "imported": len(ids),
+            "ids": ids,
+            "topics": topics,
+            "warnings": warnings,
+        })
+
+    # Default: preview only
+    from collections import Counter
+    categories = dict(Counter(t.get("category") or "(none)" for t in topics))
+    return jsonify({
+        "count": len(topics),
+        "topics": topics,
+        "categories": categories,
+        "warnings": warnings,
+    })
+
+
 @app.route("/api/pipeline/add-storyboards", methods=["POST"])
 def api_pipeline_add_storyboards():
     """Import pre-written storyboard JSONs (no LLM needed)."""
@@ -2008,6 +2062,40 @@ textarea {
         <button class="btn btn-sm" onclick="document.getElementById('bottomPanel').style.display='none'" style="border-radius:0;border:none">Close</button>
     </div>
     <div id="panelPipeline" style="display:none;padding:16px">
+        <!-- Bulk CSV Import -->
+        <details id="csvImportSection" style="margin-bottom:16px;border:1px solid var(--border);border-radius:8px">
+            <summary style="padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;user-select:none">
+                Bulk Import from CSV
+            </summary>
+            <div style="padding:14px;border-top:1px solid var(--border)">
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">
+                    CSV columns: <code>topic</code> (required), <code>category</code>, <code>domain</code>,
+                    <code>structure</code>, <code>format</code>, <code>theme</code>, <code>voice</code>, <code>priority</code>
+                </p>
+                <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+                    <input type="file" id="csvFileInput" accept=".csv,.txt"
+                           style="font-size:12px;flex:1" onchange="csvFileSelected()">
+                    <button class="btn btn-sm" onclick="downloadCsvTemplate()">Template</button>
+                </div>
+                <div id="csvPreviewArea" style="display:none">
+                    <div id="csvSummary" style="font-size:12px;margin-bottom:8px"></div>
+                    <div style="overflow-x:auto;max-height:200px;overflow-y:auto">
+                        <table id="csvPreviewTable" style="width:100%;font-size:11px;border-collapse:collapse">
+                            <thead id="csvPreviewHead" style="position:sticky;top:0;background:var(--bg-raised)"></thead>
+                            <tbody id="csvPreviewBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="csvWarnings" style="font-size:11px;color:#e07c00;margin-top:6px"></div>
+                    <div style="display:flex;gap:8px;margin-top:10px">
+                        <button class="btn btn-sm btn-primary" onclick="importCsv()" id="csvImportBtn">
+                            Add to Queue
+                        </button>
+                        <span id="csvImportStatus" style="font-size:12px;align-self:center"></span>
+                    </div>
+                </div>
+            </div>
+        </details>
+
         <h3 style="margin-bottom:12px;font-size:14px">Pipeline Status</h3>
         <div id="pipelineStatus" style="margin-bottom:12px;font-size:13px"><em>Loading...</em></div>
         <h3 style="margin-bottom:8px;font-size:14px">Videos</h3>
@@ -2748,6 +2836,105 @@ async function uploadToYouTube(jobId) {
 }
 
 // ── Pipeline ──
+// ── CSV Bulk Import ──
+
+let _csvParsedTopics = [];
+
+function downloadCsvTemplate() {
+    const header = 'topic,category,domain,structure,format,theme,voice,priority';
+    const rows = [
+        'How CRISPR works,biology,biology_reel,social_reel,instagram_reel,wong,aria,1',
+        'Quantum computing explained,cs,cs_reel,social_reel,tiktok,npg,guy,2',
+        'The mRNA vaccine mechanism,biology,,explainer,youtube_short,wong,jenny,1',
+    ];
+    const blob = new Blob([[header, ...rows].join('\\n')], {type: 'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'manimator_topics.csv';
+    a.click();
+}
+
+async function csvFileSelected() {
+    const input = document.getElementById('csvFileInput');
+    if (!input.files.length) return;
+    const file = input.files[0];
+    const csvText = await file.text();
+
+    const fd = new FormData();
+    fd.append('file', file);
+
+    const resp = await fetch('/api/pipeline/import-csv?action=preview', {method: 'POST', body: fd});
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+        document.getElementById('csvPreviewArea').style.display = 'none';
+        showToast('CSV error: ' + (data.error || 'Unknown'), 'error');
+        return;
+    }
+
+    _csvParsedTopics = data.topics;
+
+    // Summary
+    const cats = data.categories || {};
+    const catStr = Object.entries(cats).map(([k,v]) => `${k} (${v})`).join(', ');
+    document.getElementById('csvSummary').innerHTML =
+        `<strong>${data.count}</strong> topics · Categories: ${catStr}`;
+
+    // Table
+    const cols = ['#', 'topic', 'category', 'domain', 'format', 'theme', 'voice', 'priority'];
+    document.getElementById('csvPreviewHead').innerHTML =
+        '<tr>' + cols.map(c => `<th style="padding:4px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap">${c}</th>`).join('') + '</tr>';
+    document.getElementById('csvPreviewBody').innerHTML =
+        data.topics.map((t, i) =>
+            '<tr style="border-bottom:1px solid var(--border)">' +
+            `<td style="padding:3px 8px;color:var(--text-muted)">${i+1}</td>` +
+            `<td style="padding:3px 8px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(t.topic||'').replace(/"/g,'&quot;')}">${t.topic||''}</td>` +
+            `<td style="padding:3px 8px">${t.category||''}</td>` +
+            `<td style="padding:3px 8px;color:var(--text-muted)">${t.domain||''}</td>` +
+            `<td style="padding:3px 8px">${t.format||''}</td>` +
+            `<td style="padding:3px 8px">${t.theme||''}</td>` +
+            `<td style="padding:3px 8px">${t.voice||''}</td>` +
+            `<td style="padding:3px 8px">${t.priority||0}</td>` +
+            '</tr>'
+        ).join('');
+
+    // Warnings
+    const warns = (data.warnings || []).flatMap(w => (w.warnings || []).map(m => `Row ${w.row} (${w.topic}): ${m}`));
+    document.getElementById('csvWarnings').innerHTML = warns.length
+        ? '⚠ ' + warns.join('<br>⚠ ')
+        : '';
+
+    document.getElementById('csvPreviewArea').style.display = 'block';
+    document.getElementById('csvImportStatus').textContent = '';
+}
+
+async function importCsv() {
+    if (!_csvParsedTopics.length) return;
+    const btn = document.getElementById('csvImportBtn');
+    const status = document.getElementById('csvImportStatus');
+    btn.disabled = true;
+    status.textContent = 'Adding…';
+
+    try {
+        // Re-use the add-topics endpoint directly with pre-parsed topics
+        const resp = await fetch('/api/pipeline/add-topics', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({topics: _csvParsedTopics}),
+        });
+        const data = await resp.json();
+        if (!resp.ok || data.error) throw new Error(data.error || 'Import failed');
+        status.textContent = `✓ ${data.imported} topics queued`;
+        showToast(`${data.imported} topics added to pipeline`, 'success');
+        loadPipelineStatus();
+    } catch(e) {
+        status.textContent = '✗ ' + e.message;
+        showToast('Import failed: ' + e.message, 'error');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 async function loadPipelineStatus() {
     try {
         const resp = await fetch('/api/pipeline/status');
@@ -2767,8 +2954,8 @@ async function loadPipelineVideos() {
         const el = document.getElementById('pipelineVideos');
         if (!el) return;
         if (!videos.length) { el.innerHTML = '<em>No videos yet</em>'; return; }
-        el.innerHTML = '<table style="width:100%;font-size:13px"><tr><th>Topic</th><th>Status</th><th>URL</th></tr>' +
-            videos.map(v => `<tr><td>${v.topic||''}</td><td>${v.status}</td><td>${v.youtube_url||'-'}</td></tr>`).join('') +
+        el.innerHTML = '<table style="width:100%;font-size:13px"><tr><th>Topic</th><th>Category</th><th>Status</th><th>URL</th></tr>' +
+            videos.map(v => `<tr><td>${v.topic||''}</td><td style="color:var(--text-muted)">${v.category||''}</td><td>${v.status}</td><td>${v.youtube_url ? '<a href="'+v.youtube_url+'" target="_blank">▶ Watch</a>' : '-'}</td></tr>`).join('') +
             '</table>';
     } catch(e) { /* ignore */ }
 }

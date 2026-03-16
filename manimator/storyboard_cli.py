@@ -392,6 +392,60 @@ def cmd_pipeline(args):
             for r in results:
                 print(f"  [{r['status']:8s}] {r['topic']}")
 
+        elif args.pipeline_cmd == "import-csv":
+            from manimator.pipeline import parse_csv
+            from collections import Counter
+
+            path = Path(args.csv_file)
+            if not path.exists():
+                print(f"File not found: {path}")
+                sys.exit(1)
+
+            topics, errors = parse_csv(path.read_text(encoding="utf-8", errors="replace"))
+
+            if not topics:
+                print("No valid topics found in CSV")
+                sys.exit(1)
+
+            # Summary table
+            col_w = min(60, max((len(t["topic"]) for t in topics), default=10))
+            header = f"  {'#':>4}  {'Topic':<{col_w}}  {'Category':<16}  {'Format':<18}  {'Voice':<8}  {'Pri':>3}"
+            print(header)
+            print("  " + "-" * (len(header) - 2))
+            for i, t in enumerate(topics, 1):
+                cat = t.get("category", "")
+                print(f"  {i:>4}  {t['topic']:<{col_w}}  {cat:<16}  {t['format']:<18}  {t['voice']:<8}  {t['priority']:>3}")
+
+            if errors:
+                print(f"\n  Warnings on {len(errors)} row(s):")
+                for e in errors:
+                    for w in e.get("warnings", []):
+                        print(f"    row {e['row']} ({e['topic'][:40]}): {w}")
+
+            cats = Counter(t.get("category") or "(none)" for t in topics)
+            print(f"\n  {len(topics)} topics across {len(cats)} categories:")
+            for cat, n in sorted(cats.items()):
+                print(f"    {cat}: {n}")
+
+            if args.dry_run:
+                print("\n  [Dry run — nothing added]")
+            else:
+                ids = pipe.add_topics(topics)
+                print(f"\n  Added {len(ids)} topics to pipeline queue.")
+                if args.run:
+                    print("  Starting pipeline run…")
+                    results = pipe.run_pipeline(
+                        provider=args.provider,
+                        model=args.model,
+                        api_key=args.api_key,
+                        limit=len(ids),
+                        narrate=args.narrate,
+                        voice=args.voice,
+                    )
+                    done = sum(1 for r in results if r["status"] == "done")
+                    failed = sum(1 for r in results if r["status"] == "failed")
+                    print(f"  Complete: {done} done, {failed} failed")
+
         elif args.pipeline_cmd == "status":
             status = pipe.get_status()
             print("Pipeline status:")
@@ -537,6 +591,18 @@ def main():
     # pipeline
     p_pipe = sub.add_parser("pipeline", help="Batch pipeline operations")
     pipe_sub = p_pipe.add_subparsers(dest="pipeline_cmd")
+
+    p_pipe_csv = pipe_sub.add_parser(
+        "import-csv", help="Bulk-import topics from a CSV file (one row per video)"
+    )
+    p_pipe_csv.add_argument("csv_file", help="CSV file (columns: topic, category, domain, structure, format, theme, voice, priority)")
+    p_pipe_csv.add_argument("--dry-run", action="store_true", help="Preview without adding to queue")
+    p_pipe_csv.add_argument("--run", action="store_true", help="Immediately run pipeline after import")
+    p_pipe_csv.add_argument("--provider", "-p", default="openai", help="LLM provider (used with --run)")
+    p_pipe_csv.add_argument("--model", "-m", default=None, help="Model name (used with --run)")
+    p_pipe_csv.add_argument("--api-key", default=None, help="API key (used with --run)")
+    p_pipe_csv.add_argument("--narrate", action="store_true", help="Add narration (used with --run)")
+    p_pipe_csv.add_argument("--voice", default="aria", help="Fallback voice if not set per-row")
 
     p_pipe_add = pipe_sub.add_parser("add-topics", help="Add topics from a text file")
     p_pipe_add.add_argument("topics_file", help="Text file with one topic per line")
