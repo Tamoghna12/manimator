@@ -7,7 +7,7 @@ Dual-engine scientific video generator. Manim for landscape (16:9, 1:1), HTML/CS
 Takes a JSON storyboard and renders it into a production-quality video with optional AI narration. Supports 11 scene types (hook, title, bullet list, flowchart, bar chart, scatter plot, comparison table, two-panel, equation, pipeline diagram, closing) across 7 domain templates (biology, CS, math).
 
 **Landscape videos** use [Manim Community Edition](https://www.manim.community/) for mathematical animations.
-**Portrait videos** (Instagram Reels, TikTok, YouTube Shorts) use HTML/CSS animations captured frame-by-frame via Playwright with the Web Animations API for frame-perfect timing.
+**Portrait videos** (Instagram Reels, TikTok, YouTube Shorts) use HTML/CSS animations captured frame-by-frame via Playwright with the Web Animations API for frame-perfect timing. Output is **60 fps WebM** encoded in VP9 constant-quality mode (CRF 18) for sharp text and smooth motion at any screen size.
 
 **Content engine** provides a batch pipeline (topic queue → LLM generation → render → YouTube upload) with SQLite persistence, YouTube Analytics integration, and quota-safe upload management.
 
@@ -439,6 +439,40 @@ python -m manimator.storyboard_cli analytics insights
 
 **Note:** YouTube Analytics data lags 48-72 hours behind real-time. The "best posting day" insight uses only first-day metrics per video as a proxy for upload day to avoid conflating accumulation patterns with posting day effects (cf. Kohavi et al., 2020, *Trustworthy Online Controlled Experiments*, Cambridge University Press).
 
+## Output quality
+
+Portrait renders target production-level social media quality:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| Resolution | 1080 × 1920 | Native portrait (9:16) |
+| Frame rate | 60 fps | Smooth CSS animation capture |
+| Video codec | VP9 | `-b:v 0 -crf 18` constant-quality mode |
+| Encoding preset | `quality good, speed 2` | Parallel row encoding (`-row-mt 1`) |
+| Audio codec | Opus | 48 kHz stereo |
+
+### Visual design features
+
+**All scenes:**
+- Noise texture overlay (SVG fractal, `mix-blend-mode: overlay`) adds film-grain depth to flat backgrounds
+- Vignette (radial gradient) darkens edges for a cinematic feel
+- Rich diagonal gradients (`160deg`, dual midpoint) instead of flat fills
+- Layered multi-stop `box-shadow` on cards for tactile depth
+- Colored glow shadows on callout boxes matching their accent color
+- Headers at `font-weight: 900` with negative letter-spacing for editorial punch
+
+**Hook scene:**
+- Main text rendered with `-webkit-background-clip: text` gradient (white → cyan → brand blue)
+- Animated "Watch This" pill badge with pulsing accent dot
+- Three layered gradient orbs for depth
+- Bottom accent bar with animated `gradientShift` cycling across the brand palette
+
+**Interactive elements:**
+- `popIn` spring keyframe (0 → 104% → 98% → 100%) on bullet cards, flow nodes, equation boxes — feels physical rather than flat
+- `growWidth` on bar chart fills with `cubic-bezier(0.22, 1, 0.36, 1)` spring easing
+- Shimmer sweep on bar fills after animation completes
+- `scaleIn` entrance for dividers and accent lines
+
 ## Troubleshooting
 
 ### Windows-specific issues
@@ -642,8 +676,8 @@ manimator/
 ├── analytics.py           # YouTube Analytics sync + insights
 ├── templates/             # Manim scene type renderers (one per type)
 ├── portrait/
-│   ├── html_scenes.py     # HTML/CSS scene templates (11 types)
-│   ├── renderer.py        # Frame-by-frame capture + ffmpeg encoding
+│   ├── html_scenes.py     # HTML/CSS scene templates (11 types, 60fps, noise+vignette)
+│   ├── renderer.py        # Frame-by-frame capture + VP9 CQ ffmpeg encoding
 │   └── orchestrator.py    # Portrait video CLI pipeline
 └── web/
     ├── app.py             # Flask web UI + API (23 routes)
