@@ -283,14 +283,18 @@ def api_ollama_models():
         fallback = requested.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
         candidates.append(fallback)
 
+    last_error = None
     for base in candidates:
         try:
             models = _fetch_models(base)
             # If we succeeded via a different URL, tell the frontend to update
             return jsonify({"models": models, "resolved_url": base + "/v1"})
-        except Exception:
+        except Exception as exc:
+            last_error = exc
+            log.debug("Ollama probe %s failed: %s", base, exc)
             continue
 
+    log.warning("Ollama not reachable at %s: %s", requested, last_error)
     return jsonify({"models": [], "error": "Ollama not reachable at " + requested}), 200
 
 
@@ -783,97 +787,120 @@ body {
     -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-/* ── Layout ── */
-.app { display: flex; height: 100vh; }
-
-.sidebar {
-    width: 400px;
-    background: var(--bg-raised);
-    border-right: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    flex-shrink: 0;
+/* ── Grid Layout ── */
+.app {
+    display: grid;
+    grid-template-rows: 52px 1fr 120px;
+    grid-template-columns: 280px 1fr 360px;
+    grid-template-areas:
+        "toolbar toolbar toolbar"
+        "left-panel preview right-panel"
+        "timeline timeline timeline";
+    height: 100vh;
 }
 
-.main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+.app.left-collapsed {
+    grid-template-columns: 0px 1fr 360px;
+}
+.app.right-collapsed {
+    grid-template-columns: 280px 1fr 0px;
+}
+.app.left-collapsed.right-collapsed {
+    grid-template-columns: 0px 1fr 0px;
 }
 
 .toolbar {
+    grid-area: toolbar;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 24px;
+    padding: 0 16px;
+    height: 52px;
     border-bottom: 1px solid var(--border);
     background: var(--bg-raised);
+    z-index: 10;
 }
 
-.editor-area {
-    flex: 1;
+.left-panel {
+    grid-area: left-panel;
+    background: var(--bg-raised);
+    border-right: 1px solid var(--border);
     display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width var(--transition), opacity var(--transition);
+}
+.app.left-collapsed .left-panel { opacity: 0; pointer-events: none; overflow: hidden; }
+
+.preview-canvas {
+    grid-area: preview;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+}
+
+.right-panel {
+    grid-area: right-panel;
+    background: var(--bg-raised);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width var(--transition), opacity var(--transition);
+}
+.app.right-collapsed .right-panel { opacity: 0; pointer-events: none; overflow: hidden; }
+
+.timeline {
+    grid-area: timeline;
+    background: var(--bg-raised);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
-.json-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border);
-}
-
-.preview-panel {
-    width: 340px;
-    display: flex;
-    flex-direction: column;
-    background: var(--bg-raised);
-    flex-shrink: 0;
-}
-
-/* ── Sidebar Header ── */
-.sidebar-header {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(59,130,246,0.06) 0%, transparent 100%);
-}
-
-.sidebar-brand {
+/* ── Toolbar Styles ── */
+.toolbar-brand {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    margin-right: 8px;
 }
-
-.sidebar-brand .logo {
-    width: 32px; height: 32px;
-    border-radius: 10px;
+.toolbar-brand .logo {
+    width: 28px; height: 28px;
+    border-radius: 8px;
     background: linear-gradient(135deg, #3B82F6, #8B5CF6);
     display: flex; align-items: center; justify-content: center;
-    font-size: 16px; font-weight: 800; color: white;
+    font-size: 14px; font-weight: 800; color: white;
     box-shadow: 0 2px 8px var(--accent-glow);
+    flex-shrink: 0;
 }
-
-.sidebar-header h1 {
-    font-size: 18px;
-    font-weight: 800;
-    letter-spacing: -0.3px;
+.toolbar-brand span {
+    font-size: 15px; font-weight: 800;
     background: linear-gradient(135deg, #3B82F6, #8B5CF6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
-
-.sidebar-header .tagline {
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 2px;
-    letter-spacing: 0.3px;
+.toolbar-title {
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding: 4px 10px; border-radius: 6px; background: var(--bg-input); border: 1px solid var(--border);
+}
+.toolbar-group { display: flex; gap: 6px; align-items: center; }
+.toolbar-progress {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 3px;
+    background: var(--bg-input); overflow: hidden;
+}
+.toolbar-progress .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--purple));
+    border-radius: 2px;
+    animation: indeterminate 1.8s ease-in-out infinite;
 }
 
 /* ── Tab Bar ── */
@@ -887,8 +914,8 @@ body {
 
 .tab {
     flex: 1;
-    padding: 11px 8px;
-    font-size: 11px;
+    padding: 10px 8px;
+    font-size: 10px;
     font-weight: 600;
     color: var(--text-muted);
     cursor: pointer;
@@ -907,39 +934,265 @@ body {
 .tab-content { animation: tabFadeIn 0.2s ease-out; }
 @keyframes tabFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ── Drag & Drop Scenes ── */
-.scene-item { cursor: grab; }
-.scene-item:active { cursor: grabbing; }
-.scene-item.dragging { opacity: 0.4; }
-.scene-item.drag-over { border-top: 2px solid var(--accent); }
-
-/* ── Bottom Panel Transition ── */
-#bottomPanel { transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1); overflow: hidden; }
-#bottomPanel:not(.show) { max-height: 36px !important; }
-#bottomPanel.show { max-height: 40vh; overflow: auto; }
-
-/* ── Sidebar Resize Handle ── */
-.sidebar-resize {
-    width: 5px;
-    cursor: col-resize;
-    background: transparent;
-    position: absolute;
-    top: 0; bottom: 0; right: -3px;
-    z-index: 10;
-    transition: background 0.15s;
-}
-.sidebar-resize:hover, .sidebar-resize.active { background: var(--accent); }
-.sidebar { position: relative; }
-
-/* ── Sidebar Content ── */
-.sidebar-content {
+/* ── Left Panel Content ── */
+.left-panel-content {
     flex: 1;
     overflow-y: auto;
     padding: 0;
 }
 
-.sidebar-section {
-    padding: 16px 20px 8px;
+/* ── Preview Canvas (Center Hero) ── */
+.preview-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-raised);
+}
+
+.preview-phone-frame {
+    width: 360px;
+    height: 640px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    border: 2px solid var(--border);
+    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255,255,255,0.04), 0 0 60px rgba(59,130,246,0.08);
+    background: repeating-conic-gradient(var(--bg-card) 0% 25%, var(--bg-raised) 0% 50%) 50% / 12px 12px;
+    flex-shrink: 0;
+}
+
+.preview-phone-frame iframe {
+    width: 1080px;
+    height: 1920px;
+    border: none;
+    background: white;
+    transform: scale(0.333);
+    transform-origin: top left;
+    position: absolute;
+    top: 0; left: 0;
+}
+
+.preview-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 12px;
+    text-align: center;
+    padding: 24px;
+}
+.preview-empty-icon { font-size: 40px; opacity: 0.3; }
+.preview-empty-text { line-height: 1.5; }
+
+.preview-status {
+    padding: 6px 16px;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-raised);
+}
+.preview-status.done { color: var(--green); font-weight: 600; }
+.preview-status.error { color: var(--red); }
+
+/* ── Right Panel ── */
+.right-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-raised);
+}
+
+.right-panel-tab {
+    flex: 1;
+    padding: 10px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    border-bottom: 2px solid transparent;
+    transition: var(--transition);
+    user-select: none;
+}
+.right-panel-tab:hover { color: var(--text-secondary); }
+.right-panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+
+.right-panel-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.scene-editor-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#sceneEditor {
+    flex: 1;
+    width: 100%;
+    padding: 12px;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    resize: none;
+    outline: none;
+    tab-size: 2;
+}
+
+.scene-editor-actions {
+    padding: 8px 12px;
+    display: flex;
+    gap: 6px;
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-raised);
+}
+
+#jsonEditor {
+    flex: 1;
+    width: 100%;
+    padding: 12px;
+    background: var(--bg);
+    color: var(--text);
+    border: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.7;
+    resize: none;
+    outline: none;
+    tab-size: 2;
+}
+
+/* ── Timeline ── */
+.timeline-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+.timeline-strip {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    align-items: stretch;
+    scroll-behavior: smooth;
+}
+
+.timeline-card {
+    flex: 0 0 110px;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    position: relative;
+    user-select: none;
+}
+.timeline-card:hover {
+    border-color: var(--accent-hover);
+    background: var(--bg-card-hover);
+}
+.timeline-card.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: 0 0 12px var(--accent-glow);
+}
+.timeline-card.dragging { opacity: 0.4; }
+.timeline-card.drag-over { border-left: 3px solid var(--accent); }
+
+.timeline-card .tc-num {
+    font-size: 9px; font-weight: 700; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+}
+.timeline-card.active .tc-num { color: var(--accent); }
+
+.timeline-card .tc-type {
+    font-size: 9px; font-weight: 700;
+    padding: 1px 6px; border-radius: 3px;
+    background: var(--bg-input); color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.3px;
+    align-self: flex-start;
+}
+
+.timeline-card .tc-label {
+    font-size: 10px; color: var(--text-secondary);
+    overflow: hidden; text-overflow: ellipsis;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    line-height: 1.3; flex: 1;
+}
+
+.timeline-card .tc-delete {
+    position: absolute; top: 4px; right: 4px;
+    width: 18px; height: 18px;
+    border-radius: 4px; border: none;
+    background: var(--red-dim); color: var(--red);
+    font-size: 10px; cursor: pointer;
+    display: none; align-items: center; justify-content: center;
+    transition: var(--transition);
+}
+.timeline-card:hover .tc-delete { display: flex; }
+.timeline-card .tc-delete:hover { background: var(--red); color: white; }
+
+.timeline-add {
+    flex: 0 0 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    border: 2px dashed var(--border);
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-muted);
+    font-size: 20px;
+    font-weight: 300;
+}
+.timeline-add:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+.panel-section {
+    padding: 14px 16px 6px;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -950,7 +1203,7 @@ body {
     gap: 8px;
 }
 
-.sidebar-section::after {
+.panel-section::after {
     content: '';
     flex: 1;
     height: 1px;
@@ -959,7 +1212,7 @@ body {
 
 /* ── Template Cards ── */
 .template-grid {
-    padding: 4px 12px;
+    padding: 4px 10px;
 }
 
 .template-card {
@@ -1038,7 +1291,7 @@ body {
 
 /* ── Quick Start ── */
 .quick-start {
-    padding: 16px 16px 8px;
+    padding: 12px 10px 8px;
 }
 
 .quick-start-inner {
@@ -1052,13 +1305,13 @@ body {
 .structure-scroll {
     display: flex;
     gap: 8px;
-    padding: 4px 16px 12px;
+    padding: 4px 10px 12px;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
 }
 
 .structure-card {
-    flex: 0 0 180px;
+    flex: 0 0 160px;
     padding: 14px;
     border-radius: var(--radius);
     background: var(--bg-card);
@@ -1103,10 +1356,10 @@ body {
 
 /* ── Example Cards ── */
 .example-cards {
-    padding: 4px 12px 12px;
+    padding: 4px 10px 12px;
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
 }
 
 .example-card {
@@ -1142,80 +1395,7 @@ body {
     font-weight: 600;
 }
 
-/* ── Scene List ── */
-.scene-list-header {
-    padding: 10px 16px;
-    display: flex;
-    gap: 6px;
-    border-bottom: 1px solid var(--border-subtle);
-}
-
-.scene-list {
-    padding: 8px 12px;
-    overflow-y: auto;
-    flex: 1;
-}
-
-.scene-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    margin-bottom: 2px;
-    transition: var(--transition);
-    font-size: 13px;
-    border: 1px solid transparent;
-}
-
-.scene-item:hover { background: var(--bg-card-hover); border-color: var(--border); }
-.scene-item.active { background: var(--accent-dim); border-color: var(--accent); }
-
-.scene-num {
-    font-size: 10px;
-    font-weight: 700;
-    width: 22px; height: 22px;
-    border-radius: 6px;
-    background: var(--bg-input);
-    display: flex; align-items: center; justify-content: center;
-    color: var(--text-muted);
-    font-family: 'JetBrains Mono', monospace;
-    flex-shrink: 0;
-}
-
-.scene-item.active .scene-num { background: var(--accent); color: white; }
-
-.scene-badge {
-    font-size: 9px;
-    font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: var(--bg-input);
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-}
-
-.scene-label {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-}
-
-.scene-actions {
-    display: flex;
-    gap: 2px;
-    opacity: 0;
-    transition: opacity 0.15s;
-}
-
-.scene-item:hover .scene-actions { opacity: 1; }
-
+/* ── Scene Empty State ── */
 .scene-empty {
     text-align: center;
     padding: 40px 20px;
@@ -1310,113 +1490,9 @@ textarea {
     line-height: 1.6;
 }
 
-/* ── JSON Editor ── */
-.json-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    background: var(--bg-raised);
-}
+/* (JSON editor and preview styles moved to grid sections above) */
 
-#jsonEditor {
-    flex: 1;
-    width: 100%;
-    padding: 16px;
-    background: var(--bg);
-    color: var(--text);
-    border: none;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    line-height: 1.7;
-    resize: none;
-    outline: none;
-    tab-size: 2;
-}
-
-/* ── Preview ── */
-.preview-header {
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    background: var(--bg-raised);
-}
-
-.preview-frame {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    overflow: hidden;
-    background: repeating-conic-gradient(var(--bg-card) 0% 25%, var(--bg) 0% 50%) 50% / 16px 16px;
-}
-
-.preview-frame iframe {
-    width: 1080px;
-    height: 1920px;
-    border: 2px solid var(--border);
-    border-radius: 16px;
-    background: white;
-    transform: scale(0.25);
-    transform-origin: top left;
-    margin-bottom: -1440px;
-    margin-right: -810px;
-    box-shadow: var(--shadow-lg);
-}
-
-/* ── Render Panel ── */
-.render-panel {
-    padding: 16px 20px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-raised);
-}
-
-.render-options {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 12px;
-    align-items: center;
-}
-
-.render-status {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-top: 8px;
-}
-
-.render-status.done { color: var(--green); font-weight: 600; }
-.render-status.error { color: var(--red); }
-
-.progress-bar {
-    height: 3px;
-    background: var(--bg-input);
-    border-radius: 2px;
-    margin-top: 10px;
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--purple));
-    border-radius: 2px;
-    transition: width 0.3s;
-    animation: indeterminate 1.8s ease-in-out infinite;
-}
-
+/* ── Progress Animation ── */
 @keyframes indeterminate {
     0% { transform: translateX(-100%); width: 35%; }
     50% { width: 55%; }
@@ -1498,7 +1574,7 @@ textarea {
 
 /* ── Guide ── */
 .guide-content {
-    padding: 0 16px 16px;
+    padding: 0 10px 12px;
 }
 
 .guide-section {
@@ -1634,8 +1710,8 @@ textarea {
 
 /* ── Settings Section ── */
 .settings-section {
-    padding: 16px;
-    margin: 8px 12px;
+    padding: 14px;
+    margin: 6px 10px;
     border-radius: var(--radius);
     background: var(--bg-card);
     border: 1px solid var(--border);
@@ -1717,29 +1793,48 @@ textarea {
 </style>
 </head>
 <body>
-<div class="app">
-    <!-- ── Sidebar ── -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-resize" id="sidebarResize"></div>
-        <div class="sidebar-header">
-            <div class="sidebar-brand">
-                <div class="logo">M</div>
-                <div>
-                    <h1>manimator</h1>
-                    <div class="tagline">Scientific Video Generator</div>
-                </div>
-            </div>
-        </div>
+<div class="app" id="appRoot">
 
+    <!-- ══════════ Toolbar ══════════ -->
+    <div class="toolbar" style="position:relative">
+        <div class="toolbar-brand">
+            <div class="logo">M</div>
+            <span>manimator</span>
+        </div>
+        <div class="toolbar-title" id="toolbarTitle">Untitled</div>
+        <span style="flex:1"></span>
+        <div class="toolbar-group">
+            <button class="btn btn-sm" onclick="togglePanel('left')" id="btnToggleLeft" title="Toggle tools panel">Tools</button>
+            <button class="btn btn-sm" onclick="togglePanel('right')" id="btnToggleRight" title="Toggle editor panel">Editor</button>
+            <div class="toolbar-sep"></div>
+            <button class="btn btn-sm" onclick="openPipelineModal()">Pipeline</button>
+            <button class="btn btn-sm" onclick="openAnalyticsModal()">Analytics</button>
+            <div class="toolbar-sep"></div>
+            <button class="btn btn-sm" onclick="validateStoryboard()">Validate</button>
+            <button class="btn btn-sm" onclick="downloadJson()">Export</button>
+            <button class="btn btn-sm" onclick="importJson()">Import</button>
+            <div class="toolbar-sep"></div>
+            <label class="toggle-label" style="font-size:11px">
+                <input type="checkbox" class="toggle" id="cbNarrate" checked>
+                <span>Narrate</span>
+            </label>
+            <button class="btn btn-sm btn-primary" onclick="startRender()" id="renderBtn">Render</button>
+        </div>
+        <div class="toolbar-progress" id="progressBar" style="display:none">
+            <div class="progress-fill"></div>
+        </div>
+    </div>
+
+    <!-- ══════════ Left Panel ══════════ -->
+    <div class="left-panel" id="leftPanel">
         <div class="tab-bar">
             <div class="tab active" onclick="switchTab(this,'guide')">Guide</div>
             <div class="tab" onclick="switchTab(this,'templates')">Templates</div>
-            <div class="tab" onclick="switchTab(this,'scenes')">Scenes</div>
             <div class="tab" onclick="switchTab(this,'settings')">Settings</div>
         </div>
 
         <!-- ════ Templates Tab ════ -->
-        <div class="sidebar-content tab-content" id="tab-templates" style="display:none">
+        <div class="left-panel-content tab-content" id="tab-templates" style="display:none">
 
             <!-- Quick Start -->
             <div class="quick-start">
@@ -1748,58 +1843,44 @@ textarea {
                         <label class="form-label">Topic</label>
                         <input type="text" id="topicInput" placeholder="e.g., How CRISPR-Cas9 edits genes" />
                     </div>
-                    <div style="display:flex;gap:8px">
-                        <button class="btn btn-primary" onclick="scaffoldFromTopic()" style="flex:1">Generate Scaffold</button>
-                        <button class="btn" onclick="showPromptModal()" title="Generate an LLM prompt to create storyboard JSON">LLM Prompt</button>
+                    <div style="display:flex;gap:6px">
+                        <button class="btn btn-primary btn-sm" onclick="scaffoldFromTopic()" style="flex:1">Scaffold</button>
+                        <button class="btn btn-sm" onclick="showPromptModal()" title="LLM prompt">Prompt</button>
                     </div>
-                    <div style="margin-top:8px">
-                        <button class="btn btn-primary" onclick="generateWithAI()" style="width:100%;background:var(--purple);border-color:var(--purple)" title="Generate a complete storyboard using AI">Generate with AI</button>
+                    <div style="margin-top:6px">
+                        <button class="btn btn-primary btn-sm" onclick="generateWithAI()" style="width:100%;background:var(--purple);border-color:var(--purple)" title="Generate with AI">AI Generate</button>
                     </div>
                 </div>
             </div>
 
             <!-- Video Structures -->
-            <div class="sidebar-section">Video Structures</div>
+            <div class="panel-section">Video Structures</div>
             <div class="structure-scroll" id="structureList"></div>
 
             <!-- Domain Templates — Biology -->
-            <div class="sidebar-section">Biology</div>
+            <div class="panel-section">Biology</div>
             <div class="template-grid" id="domainBioList"></div>
 
             <!-- Domain Templates — Computer Science -->
-            <div class="sidebar-section">Computer Science</div>
+            <div class="panel-section">Computer Science</div>
             <div class="template-grid" id="domainCsList"></div>
 
             <!-- Domain Templates — Mathematics -->
-            <div class="sidebar-section">Mathematics</div>
+            <div class="panel-section">Mathematics</div>
             <div class="template-grid" id="domainMathList"></div>
 
             <!-- Domain Templates — General -->
-            <div class="sidebar-section">General</div>
+            <div class="panel-section">General</div>
             <div class="template-grid" id="domainGenList"></div>
 
             <!-- Ready-to-Render Examples -->
-            <div class="sidebar-section">Ready-to-Render Examples</div>
+            <div class="panel-section">Ready-to-Render Examples</div>
             <div class="example-cards" id="exampleList"></div>
 
         </div>
 
-        <!-- ════ Scenes Tab ════ -->
-        <div class="sidebar-content tab-content" id="tab-scenes" style="display:none">
-            <div class="scene-list-header">
-                <button class="btn btn-sm btn-primary" onclick="addScene()" style="flex:1">+ Add Scene</button>
-                <button class="btn btn-sm btn-ghost" onclick="duplicateScene()" title="Duplicate selected scene">Dup</button>
-            </div>
-            <div class="scene-list" id="sceneList">
-                <div class="scene-empty">
-                    No scenes yet.<br>
-                    Start by picking a template or adding scenes manually.
-                </div>
-            </div>
-        </div>
-
         <!-- ════ Settings Tab ════ -->
-        <div class="sidebar-content tab-content" id="tab-settings" style="display:none">
+        <div class="left-panel-content tab-content" id="tab-settings" style="display:none">
             <div class="settings-section">
                 <h4>Project</h4>
                 <div class="form-group">
@@ -1912,16 +1993,16 @@ textarea {
                     <label class="form-label">Base URL</label>
                     <div style="display:flex;gap:6px">
                         <input type="text" id="aiBaseUrl" placeholder="http://localhost:11434/v1" style="flex:1" />
-                        <button onclick="populateOllamaModels()" title="Detect installed models" style="padding:0 10px;font-size:13px;cursor:pointer">↺</button>
+                        <button onclick="populateOllamaModels(true)" title="Detect installed models" style="padding:0 10px;font-size:13px;cursor:pointer">↺</button>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- ════ Guide Tab ════ -->
-        <div class="sidebar-content tab-content" id="tab-guide">
+        <div class="left-panel-content tab-content" id="tab-guide">
             <div class="guide-content">
-                <div class="guide-section" style="margin-top:16px">
+                <div class="guide-section" style="margin-top:12px">
                     <h3>How It Works</h3>
                     <div class="guide-card">
                         <div class="workflow-steps">
@@ -1948,12 +2029,12 @@ textarea {
                 <div class="guide-section">
                     <h3><span class="step-num">1</span> Choose a Starting Point</h3>
                     <div class="guide-card">
-                        <p><strong>Domain Templates</strong> give you a scaffold matching your field (biology, CS, math). Pick one, then fill in your content.</p>
-                        <p><strong>Ready-to-Render Examples</strong> are complete storyboards you can render immediately to see what the output looks like.</p>
-                        <p><strong>Video Structures</strong> define the scene sequence (explainer, reel, data-heavy, etc.) without domain-specific content.</p>
+                        <p><strong>Domain Templates</strong> give you a scaffold matching your field.</p>
+                        <p><strong>Ready-to-Render Examples</strong> are complete storyboards you can render immediately.</p>
+                        <p><strong>Video Structures</strong> define scene sequence without domain-specific content.</p>
                         <div class="tip">
                             <span class="tip-icon">*</span>
-                            <p>Enter a topic in the Quick Start box before clicking a domain template — the scaffold will use your topic.</p>
+                            <p>Enter a topic in Quick Start before clicking a template.</p>
                         </div>
                     </div>
                 </div>
@@ -1961,66 +2042,27 @@ textarea {
                 <div class="guide-section">
                     <h3><span class="step-num">2</span> Edit Your Storyboard</h3>
                     <div class="guide-card">
-                        <p>The storyboard is a JSON document with two parts:</p>
                         <p><code>"meta"</code> — title, color theme, format, resolution</p>
-                        <p><code>"scenes"</code> — an array of scene objects, each with a <code>"type"</code> field</p>
-                        <p>Edit the JSON directly in the editor. Use the <strong>Scenes</strong> tab to reorder, add, or delete scenes. Changes sync both ways.</p>
-                        <div class="tip">
-                            <span class="tip-icon">*</span>
-                            <p>Click <strong>LLM Prompt</strong> to generate a prompt you can paste into Claude or ChatGPT. The LLM will return valid storyboard JSON you can paste back.</p>
-                        </div>
+                        <p><code>"scenes"</code> — array of scene objects with a <code>"type"</code> field</p>
+                        <p>Edit JSON in the right panel. Use the timeline to reorder scenes.</p>
                     </div>
                 </div>
 
                 <div class="guide-section">
-                    <h3><span class="step-num">3</span> Scene Types Reference</h3>
+                    <h3><span class="step-num">3</span> Scene Types</h3>
                     <div class="guide-card">
-                        <p>Each scene type has specific fields. Use the <strong>+ Add Scene</strong> button to see all types with their defaults.</p>
                         <div class="scene-ref-grid">
-                            <div class="scene-ref-item">
-                                <span class="sri-name">hook</span>
-                                <span class="sri-desc">Bold opener</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">title</span>
-                                <span class="sri-desc">Title card</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">bullet_list</span>
-                                <span class="sri-desc">Key points</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">flowchart</span>
-                                <span class="sri-desc">Process flow</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">bar_chart</span>
-                                <span class="sri-desc">Data bars</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">scatter_plot</span>
-                                <span class="sri-desc">XY clusters</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">comparison_table</span>
-                                <span class="sri-desc">Side-by-side</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">two_panel</span>
-                                <span class="sri-desc">Split view</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">equation</span>
-                                <span class="sri-desc">Math formula</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">pipeline_diagram</span>
-                                <span class="sri-desc">System arch</span>
-                            </div>
-                            <div class="scene-ref-item">
-                                <span class="sri-name">closing</span>
-                                <span class="sri-desc">References</span>
-                            </div>
+                            <div class="scene-ref-item"><span class="sri-name">hook</span><span class="sri-desc">Bold opener</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">title</span><span class="sri-desc">Title card</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">bullet_list</span><span class="sri-desc">Key points</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">flowchart</span><span class="sri-desc">Process flow</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">bar_chart</span><span class="sri-desc">Data bars</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">scatter_plot</span><span class="sri-desc">XY clusters</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">comparison_table</span><span class="sri-desc">Side-by-side</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">two_panel</span><span class="sri-desc">Split view</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">equation</span><span class="sri-desc">Math formula</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">pipeline_diagram</span><span class="sri-desc">System arch</span></div>
+                            <div class="scene-ref-item"><span class="sri-name">closing</span><span class="sri-desc">References</span></div>
                         </div>
                     </div>
                 </div>
@@ -2028,95 +2070,76 @@ textarea {
                 <div class="guide-section">
                     <h3><span class="step-num">4</span> Preview &amp; Render</h3>
                     <div class="guide-card">
-                        <p>The <strong>Preview</strong> panel shows a live HTML preview of each scene. Use the dropdown to switch between scenes.</p>
-                        <p>Click <strong>Validate</strong> to check your JSON before rendering. The validator checks all required fields and types.</p>
-                        <p>Click <strong>Render Video</strong> to generate the final video. Portrait formats use the HTML/CSS engine with frame-perfect animation capture. Landscape formats use Manim.</p>
-                        <div class="tip">
-                            <span class="tip-icon">*</span>
-                            <p>Rendering takes 30s-3min depending on scene count and narration. The progress indicator will update until complete.</p>
-                        </div>
+                        <p>The center preview shows each scene live. Click scenes in the timeline below to switch.</p>
+                        <p>Click <strong>Render</strong> in the toolbar to generate the final video.</p>
                     </div>
                 </div>
-
-                <div class="guide-section">
-                    <h3><span class="step-num">5</span> CLI Usage</h3>
-                    <div class="guide-card">
-                        <p>You can also use manimator from the command line:</p>
-                        <p><code>python -m manimator.portrait -s story.json --narrate</code></p>
-                        <p><code>python -m manimator.orchestrator -s story.json -q high</code></p>
-                        <p><code>python -m manimator.storyboard_cli list</code></p>
-                        <p><code>python -m manimator.storyboard_cli prompt "CRISPR" --domain biology_reel</code></p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ════ Render ════ -->
-        <div class="render-panel">
-            <div class="render-options">
-                <label class="toggle-label">
-                    <input type="checkbox" class="toggle" id="cbNarrate" checked>
-                    <span>Narrate</span>
-                </label>
-                <span style="flex:1"></span>
-                <span style="font-size:11px;color:var(--text-muted)" id="renderEngineHint">Engine: HTML/CSS</span>
-            </div>
-            <button class="btn btn-primary" onclick="startRender()" id="renderBtn" style="width:100%">
-                Render Video
-            </button>
-            <div class="render-status" id="renderStatus"></div>
-            <div class="progress-bar" id="progressBar" style="display:none">
-                <div class="progress-fill"></div>
             </div>
         </div>
     </div>
 
-    <!-- ── Main Area ── -->
-    <div class="main">
-        <div class="toolbar">
-            <span style="font-weight:700;font-size:14px;letter-spacing:-0.2px" id="toolbarTitle">Untitled</span>
-            <span style="flex:1"></span>
-            <button class="btn btn-sm" onclick="validateStoryboard()">Validate</button>
-            <div class="toolbar-sep"></div>
-            <button class="btn btn-sm" onclick="downloadJson()">Export JSON</button>
-            <button class="btn btn-sm" onclick="importJson()">Import JSON</button>
+    <!-- ══════════ Preview Canvas (Center) ══════════ -->
+    <div class="preview-canvas">
+        <div class="preview-controls">
+            <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-muted)">Preview</span>
+            <select id="previewScene" onchange="previewCurrentScene()" style="width:180px;padding:4px 8px;font-size:11px;margin-left:auto"></select>
+            <span style="font-size:10px;color:var(--text-muted)" id="renderEngineHint">Engine: HTML/CSS</span>
         </div>
-
-        <div class="editor-area">
-            <!-- JSON Editor -->
-            <div class="json-panel">
-                <div class="json-header">
-                    <span>Storyboard JSON</span>
-                    <div style="display:flex;gap:6px">
-                        <button class="btn btn-sm" onclick="formatJson()">Format</button>
-                    </div>
+        <div class="preview-area">
+            <div class="preview-phone-frame">
+                <div class="preview-empty" id="previewEmpty">
+                    <div class="preview-empty-icon">&#9654;</div>
+                    <div class="preview-empty-text">Pick a template or add scenes<br>to see a live preview</div>
                 </div>
+                <iframe id="previewIframe" sandbox="allow-scripts" style="display:none"></iframe>
+            </div>
+        </div>
+        <div class="preview-status" id="renderStatus"></div>
+    </div>
+
+    <!-- ══════════ Right Panel (JSON Editor) ══════════ -->
+    <div class="right-panel" id="rightPanel">
+        <div class="right-panel-header">
+            <div class="right-panel-tab active" onclick="switchRightView(this,'scene')" id="rpTabScene">Scene</div>
+            <div class="right-panel-tab" onclick="switchRightView(this,'full')" id="rpTabFull">Full JSON</div>
+            <button class="btn btn-sm btn-ghost" onclick="formatJson()" style="margin:0 6px;padding:4px 10px" title="Format JSON">Fmt</button>
+        </div>
+        <div class="right-panel-body">
+            <!-- Scene Editor View -->
+            <div class="scene-editor-area" id="sceneEditorView">
+                <textarea id="sceneEditor" spellcheck="false" placeholder="Select a scene in the timeline to edit its JSON here..."></textarea>
+                <div class="scene-editor-actions">
+                    <button class="btn btn-sm btn-primary" onclick="applySceneEdit()" style="flex:1">Apply</button>
+                    <button class="btn btn-sm" onclick="resetSceneEdit()">Reset</button>
+                </div>
+            </div>
+            <!-- Full JSON View -->
+            <div class="scene-editor-area" id="fullJsonView" style="display:none">
                 <textarea id="jsonEditor" spellcheck="false"></textarea>
             </div>
+        </div>
+    </div>
 
-            <!-- Live Preview -->
-            <div class="preview-panel">
-                <div class="preview-header">
-                    <span>Scene Preview</span>
-                    <select id="previewScene" onchange="previewCurrentScene()" style="width:150px;padding:4px 8px;font-size:11px"></select>
-                </div>
-                <div class="preview-frame">
-                    <iframe id="previewIframe" sandbox="allow-scripts"></iframe>
-                </div>
-            </div>
+    <!-- ══════════ Timeline (Bottom) ══════════ -->
+    <div class="timeline">
+        <div class="timeline-header">
+            <span>Timeline</span>
+            <span style="flex:1"></span>
+            <button class="btn btn-sm btn-ghost" onclick="duplicateScene()" title="Duplicate selected scene" style="padding:2px 8px;font-size:10px">Dup</button>
+            <span style="font-size:10px;color:var(--text-muted)" id="sceneCount">0 scenes</span>
+        </div>
+        <div class="timeline-strip" id="timelineStrip">
+            <div class="timeline-add" onclick="addScene()" title="Add scene">+</div>
         </div>
     </div>
 </div>
 
-<!-- Pipeline & Analytics Panels (collapsible bottom bar) -->
-<div style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-raised);border-top:1px solid var(--border);z-index:100;max-height:40vh;overflow:auto" id="bottomPanel" class="">
-    <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
-        <button class="btn btn-sm" onclick="toggleBottom('pipeline')" style="border-radius:0;border:none;border-right:1px solid var(--border)">Pipeline</button>
-        <button class="btn btn-sm" onclick="toggleBottom('analytics')" style="border-radius:0;border:none;border-right:1px solid var(--border)">Analytics</button>
-        <span style="flex:1"></span>
-        <button class="btn btn-sm" onclick="toggleBottom(null)" style="border-radius:0;border:none">Close</button>
-    </div>
-    <div id="panelPipeline" style="display:none;padding:16px">
+<!-- ══════════ Pipeline Modal ══════════ -->
+<div class="modal-overlay" id="pipelineModal">
+    <div class="modal" style="max-width:900px">
+        <h2>Pipeline</h2>
+        <p class="modal-subtitle">Bulk import, queue management, and rendered videos.</p>
+
         <!-- Bulk CSV Import -->
         <details id="csvImportSection" style="margin-bottom:16px;border:1px solid var(--border);border-radius:8px">
             <summary style="padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;user-select:none">
@@ -2155,30 +2178,24 @@ textarea {
         <div id="pipelineStatus" style="margin-bottom:12px;font-size:13px"><em>Loading...</em></div>
         <h3 style="margin-bottom:8px;font-size:14px">Videos</h3>
         <div id="pipelineVideos" style="font-size:13px"><em>Loading...</em></div>
-    </div>
-    <div id="panelAnalytics" style="display:none;padding:16px">
-        <h3 style="margin-bottom:12px;font-size:14px">Analytics Summary</h3>
-        <div id="analyticsSummary"><em>Loading...</em></div>
+
+        <div style="margin-top:16px;text-align:right">
+            <button class="btn" onclick="closeModal('pipelineModal')">Close</button>
+        </div>
     </div>
 </div>
-<script>
-document.getElementById('bottomPanel').style.display = 'none';
-let _activeBottomPanel = null;
-function toggleBottom(panel) {
-    const bp = document.getElementById('bottomPanel');
-    if (panel === null || panel === _activeBottomPanel) {
-        bp.classList.remove('show');
-        _activeBottomPanel = null;
-        return;
-    }
-    _activeBottomPanel = panel;
-    bp.classList.add('show');
-    document.getElementById('panelPipeline').style.display = panel === 'pipeline' ? 'block' : 'none';
-    document.getElementById('panelAnalytics').style.display = panel === 'analytics' ? 'block' : 'none';
-    if (panel === 'pipeline') { loadPipelineStatus(); loadPipelineVideos(); }
-    if (panel === 'analytics') { loadAnalyticsSummary(); }
-}
-</script>
+
+<!-- ══════════ Analytics Modal ══════════ -->
+<div class="modal-overlay" id="analyticsModal">
+    <div class="modal" style="max-width:900px">
+        <h2>Analytics</h2>
+        <p class="modal-subtitle">Performance summary across your videos.</p>
+        <div id="analyticsSummary"><em>Loading...</em></div>
+        <div style="margin-top:16px;text-align:right">
+            <button class="btn" onclick="closeModal('analyticsModal')">Close</button>
+        </div>
+    </div>
+</div>
 
 <!-- LLM Prompt Modal -->
 <div class="modal-overlay" id="promptModal">
@@ -2255,6 +2272,111 @@ async function init() {
     syncUI();
 }
 
+// ── Panel Toggles ──
+function togglePanel(side) {
+    const app = document.getElementById('appRoot');
+    if (side === 'left') {
+        app.classList.toggle('left-collapsed');
+    } else if (side === 'right') {
+        app.classList.toggle('right-collapsed');
+    }
+}
+
+// ── Right Panel View Toggle ──
+function switchRightView(el, view) {
+    document.querySelectorAll('.right-panel-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('sceneEditorView').style.display = view === 'scene' ? '' : 'none';
+    document.getElementById('fullJsonView').style.display = view === 'full' ? '' : 'none';
+}
+
+// ── Scene Editor ──
+function loadSceneEditor() {
+    const editor = document.getElementById('sceneEditor');
+    if (selectedSceneIdx < 0 || !storyboard.scenes?.[selectedSceneIdx]) {
+        editor.value = '';
+        editor.placeholder = 'Select a scene in the timeline to edit its JSON here...';
+        return;
+    }
+    editor.value = JSON.stringify(storyboard.scenes[selectedSceneIdx], null, 2);
+}
+
+function applySceneEdit() {
+    if (selectedSceneIdx < 0) { toast('No scene selected', 'error'); return; }
+    try {
+        const edited = JSON.parse(document.getElementById('sceneEditor').value);
+        storyboard.scenes[selectedSceneIdx] = edited;
+        syncUI();
+        toast('Scene updated', 'success');
+    } catch(e) { toast('Invalid JSON in scene editor', 'error'); }
+}
+
+function resetSceneEdit() {
+    loadSceneEditor();
+}
+
+// ── Pipeline / Analytics Modals ──
+function openPipelineModal() {
+    document.getElementById('pipelineModal').classList.add('show');
+    loadPipelineStatus();
+    loadPipelineVideos();
+}
+
+function openAnalyticsModal() {
+    document.getElementById('analyticsModal').classList.add('show');
+    loadAnalyticsSummary();
+}
+
+// ── Timeline Renderer ──
+function renderTimeline() {
+    const strip = document.getElementById('timelineStrip');
+    const scenes = storyboard.scenes || [];
+    const countEl = document.getElementById('sceneCount');
+    if (countEl) countEl.textContent = `${scenes.length} scene${scenes.length !== 1 ? 's' : ''}`;
+
+    let html = '';
+    scenes.forEach((scene, i) => {
+        const active = i === selectedSceneIdx ? 'active' : '';
+        const label = scene.header || scene.title || scene.hook_text || scene.id || '(unnamed)';
+        html += `
+            <div class="timeline-card ${active}" onclick="selectScene(${i})"
+                 draggable="true"
+                 ondragstart="onTimelineDragStart(event,${i})"
+                 ondragover="onTimelineDragOver(event)"
+                 ondragenter="onTimelineDragEnter(event)"
+                 ondragleave="onTimelineDragLeave(event)"
+                 ondrop="onTimelineDrop(event,${i})"
+                 ondragend="onTimelineDragEnd(event)">
+                <button class="tc-delete" onclick="event.stopPropagation();deleteScene(${i})" title="Delete">&#x2715;</button>
+                <span class="tc-num">${i+1}</span>
+                <span class="tc-type">${scene.type || '?'}</span>
+                <span class="tc-label">${label.substring(0, 40)}</span>
+            </div>`;
+    });
+    html += '<div class="timeline-add" onclick="addScene()" title="Add scene">+</div>';
+    strip.innerHTML = html;
+}
+
+// ── Timeline Drag & Drop ──
+let _dragTimelineIdx = null;
+function onTimelineDragStart(e, idx) { _dragTimelineIdx = idx; e.currentTarget.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+function onTimelineDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function onTimelineDragEnter(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function onTimelineDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onTimelineDrop(e, targetIdx) {
+    e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+    if (_dragTimelineIdx === null || _dragTimelineIdx === targetIdx) return;
+    const scenes = storyboard.scenes;
+    const [moved] = scenes.splice(_dragTimelineIdx, 1);
+    scenes.splice(targetIdx, 0, moved);
+    if (selectedSceneIdx === _dragTimelineIdx) selectedSceneIdx = targetIdx;
+    else if (_dragTimelineIdx < selectedSceneIdx && targetIdx >= selectedSceneIdx) selectedSceneIdx--;
+    else if (_dragTimelineIdx > selectedSceneIdx && targetIdx <= selectedSceneIdx) selectedSceneIdx++;
+    _dragTimelineIdx = null;
+    syncUI();
+}
+function onTimelineDragEnd(e) { e.currentTarget.classList.remove('dragging'); _dragTimelineIdx = null; }
+
 function renderStructureList() {
     const el = document.getElementById('structureList');
     el.innerHTML = '';
@@ -2330,7 +2452,6 @@ async function loadDomainTemplate(domain) {
     });
     storyboard = await resp.json();
     syncUI();
-    switchTab(document.querySelector('.tab'), 'templates');
     toast('Scaffold loaded — edit the JSON to fill in your content', 'success');
 }
 
@@ -2382,7 +2503,8 @@ function syncUI() {
     document.getElementById('brandAccent').value = br.accent_label || '';
     document.getElementById('brandSocials').value = (br.social_handles || []).join(', ');
     document.getElementById('brandWatermark').value = br.watermark_text || '';
-    renderSceneList();
+    renderTimeline();
+    loadSceneEditor();
     updatePreviewDropdown();
     updateEngineHint();
     if (storyboard.scenes?.length > 0 && selectedSceneIdx < 0) {
@@ -2395,7 +2517,8 @@ function syncFromJson() {
     try {
         storyboard = JSON.parse(document.getElementById('jsonEditor').value);
         document.getElementById('toolbarTitle').textContent = storyboard.meta?.title || 'Untitled';
-        renderSceneList();
+        renderTimeline();
+        loadSceneEditor();
         updatePreviewDropdown();
         updateEngineHint();
     } catch(e) { /* ignore parse errors during typing */ }
@@ -2426,74 +2549,14 @@ function formatJson() {
     } catch(e) { toast('Invalid JSON syntax', 'error'); }
 }
 
-// ── Scene List ──
-function renderSceneList() {
-    const el = document.getElementById('sceneList');
-    const scenes = storyboard.scenes || [];
-    if (scenes.length === 0) {
-        el.innerHTML = '<div class="scene-empty">No scenes yet.<br>Start by picking a template or adding scenes manually.</div>';
-        return;
-    }
-    el.innerHTML = '';
-    scenes.forEach((scene, i) => {
-        const active = i === selectedSceneIdx ? 'active' : '';
-        const label = scene.header || scene.title || scene.hook_text || scene.id || '(unnamed)';
-        el.innerHTML += `
-            <div class="scene-item ${active}" onclick="selectScene(${i})"
-                 draggable="true"
-                 ondragstart="onSceneDragStart(event,${i})"
-                 ondragover="onSceneDragOver(event)"
-                 ondragenter="onSceneDragEnter(event)"
-                 ondragleave="onSceneDragLeave(event)"
-                 ondrop="onSceneDrop(event,${i})"
-                 ondragend="onSceneDragEnd(event)">
-                <span class="scene-num">${i+1}</span>
-                <span class="scene-badge">${scene.type}</span>
-                <span class="scene-label">${label.substring(0, 35)}</span>
-                <div class="scene-actions">
-                    <button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();moveScene(${i},-1)" title="Move up">&#x25B2;</button>
-                    <button class="btn btn-icon btn-sm btn-ghost" onclick="event.stopPropagation();moveScene(${i},1)" title="Move down">&#x25BC;</button>
-                    <button class="btn btn-icon btn-sm btn-danger" onclick="event.stopPropagation();deleteScene(${i})" title="Delete">&#x2715;</button>
-                </div>
-            </div>`;
-    });
-}
-
+// ── Scene Selection ──
 function selectScene(idx) {
     selectedSceneIdx = idx;
-    renderSceneList();
+    renderTimeline();
+    loadSceneEditor();
     document.getElementById('previewScene').value = idx;
     previewCurrentScene();
 }
-
-function moveScene(idx, dir) {
-    const scenes = storyboard.scenes;
-    const newIdx = idx + dir;
-    if (newIdx < 0 || newIdx >= scenes.length) return;
-    [scenes[idx], scenes[newIdx]] = [scenes[newIdx], scenes[idx]];
-    if (selectedSceneIdx === idx) selectedSceneIdx = newIdx;
-    syncUI();
-}
-
-// ── Drag & Drop ──
-let _dragSceneIdx = null;
-function onSceneDragStart(e, idx) { _dragSceneIdx = idx; e.currentTarget.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
-function onSceneDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
-function onSceneDragEnter(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-function onSceneDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-function onSceneDrop(e, targetIdx) {
-    e.preventDefault(); e.currentTarget.classList.remove('drag-over');
-    if (_dragSceneIdx === null || _dragSceneIdx === targetIdx) return;
-    const scenes = storyboard.scenes;
-    const [moved] = scenes.splice(_dragSceneIdx, 1);
-    scenes.splice(targetIdx, 0, moved);
-    if (selectedSceneIdx === _dragSceneIdx) selectedSceneIdx = targetIdx;
-    else if (_dragSceneIdx < selectedSceneIdx && targetIdx >= selectedSceneIdx) selectedSceneIdx--;
-    else if (_dragSceneIdx > selectedSceneIdx && targetIdx <= selectedSceneIdx) selectedSceneIdx++;
-    _dragSceneIdx = null;
-    syncUI();
-}
-function onSceneDragEnd(e) { e.currentTarget.classList.remove('dragging'); _dragSceneIdx = null; }
 
 function deleteScene(idx) {
     storyboard.scenes.splice(idx, 1);
@@ -2525,9 +2588,9 @@ function insertScene(type) {
     closeModal('addSceneModal');
     selectedSceneIdx = storyboard.scenes.length - 1;
     syncUI();
-    // Auto-switch to scenes tab
-    const scenesTab = document.querySelectorAll('.tab')[2];
-    switchTab(scenesTab, 'scenes');
+    // Scroll timeline to the new scene
+    const strip = document.getElementById('timelineStrip');
+    if (strip) setTimeout(() => strip.scrollLeft = strip.scrollWidth, 50);
     toast(`Added ${type} scene`, 'success');
 }
 
@@ -2558,7 +2621,10 @@ async function previewCurrentScene() {
     if (resp.ok) {
         const data = await resp.json();
         const iframe = document.getElementById('previewIframe');
+        const empty = document.getElementById('previewEmpty');
         iframe.srcdoc = data.html;
+        iframe.style.display = 'block';
+        if (empty) empty.style.display = 'none';
     }
 }
 
@@ -2625,12 +2691,12 @@ async function startRender() {
     const btn = document.getElementById('renderBtn');
     btn.disabled = true;
     btn.textContent = 'Rendering...';
-    document.getElementById('progressBar').style.display = 'block';
+    document.getElementById('progressBar').style.display = '';
     document.getElementById('renderStatus').textContent = 'Starting render...';
-    document.getElementById('renderStatus').className = 'render-status';
+    document.getElementById('renderStatus').className = 'preview-status';
 
     // Remove any existing download button
-    const existingDl = document.querySelector('.render-panel .btn-dl');
+    const existingDl = document.querySelector('.preview-status + .btn-dl');
     if (existingDl) existingDl.remove();
 
     const resp = await fetch('/api/render', {
@@ -2663,34 +2729,34 @@ async function pollJob() {
         setTimeout(pollJob, 2000);
     } else if (job.status === 'done') {
         status.textContent = `Render complete — ${job.size_mb?.toFixed(1)} MB`;
-        status.className = 'render-status done';
+        status.className = 'preview-status done';
         btn.disabled = false;
-        btn.textContent = 'Render Video';
+        btn.textContent = 'Render';
         document.getElementById('progressBar').style.display = 'none';
+
+        // Remove old buttons
+        document.querySelectorAll('.btn-dl, .btn-upload').forEach(e => e.remove());
 
         const dl = document.createElement('a');
         dl.href = `/api/download/${currentJobId}`;
-        dl.className = 'btn btn-primary btn-dl';
-        dl.style.cssText = 'display:inline-block;margin-top:10px;text-decoration:none;text-align:center;width:100%';
-        dl.textContent = 'Download Video';
+        dl.className = 'btn btn-primary btn-sm btn-dl';
+        dl.style.cssText = 'display:inline-block;margin:4px 8px;text-decoration:none;text-align:center';
+        dl.textContent = 'Download';
         status.after(dl);
 
-        // Add Upload button next to Download
-        const existingUpload = document.querySelector('.render-panel .btn-upload');
-        if (existingUpload) existingUpload.remove();
         const ul = document.createElement('button');
-        ul.className = 'btn btn-upload';
-        ul.style.cssText = 'display:inline-block;margin-top:6px;width:100%;background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple)';
-        ul.textContent = 'Upload to YouTube';
+        ul.className = 'btn btn-sm btn-upload';
+        ul.style.cssText = 'display:inline-block;margin:4px 0;background:var(--purple-dim);color:var(--purple);border:1px solid var(--purple)';
+        ul.textContent = 'Upload';
         ul.onclick = () => uploadToYouTube(currentJobId);
         dl.after(ul);
 
         toast('Render complete!', 'success');
     } else {
         status.textContent = `Failed: ${job.error || 'Unknown error'}`;
-        status.className = 'render-status error';
+        status.className = 'preview-status error';
         btn.disabled = false;
-        btn.textContent = 'Render Video';
+        btn.textContent = 'Render';
         document.getElementById('progressBar').style.display = 'none';
         toast('Render failed — check logs', 'error');
     }
@@ -2750,8 +2816,11 @@ function handleFileImport(event) {
 
 // ── Tabs ──
 function switchTab(el, tab) {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    // Only affect tabs within the same tab-bar
+    const tabBar = el.closest('.tab-bar');
+    if (tabBar) tabBar.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    // Hide all left panel tab contents
+    document.querySelectorAll('.left-panel-content.tab-content').forEach(c => c.style.display = 'none');
     el.classList.add('active');
     document.getElementById(`tab-${tab}`).style.display = '';
 }
@@ -2792,7 +2861,7 @@ function onProviderChange() {
         baseUrlGroup.style.display = '';
         if (!baseUrlInput.value) baseUrlInput.value = 'http://localhost:11434/v1';
         apiKeyGroup.style.display = 'none';
-        populateOllamaModels();
+        populateOllamaModels(false);
     } else if (provider === 'openai_compatible') {
         baseUrlGroup.style.display = '';
         apiKeyGroup.style.display = '';
@@ -2817,7 +2886,7 @@ function onProviderChange() {
     restoreApiKey();
 }
 
-async function populateOllamaModels() {
+async function populateOllamaModels(showErrors) {
     const modelSelect = document.getElementById('aiModel');
     const baseUrlInput = document.getElementById('aiBaseUrl');
     const baseUrl = baseUrlInput.value || 'http://localhost:11434/v1';
@@ -2842,10 +2911,11 @@ async function populateOllamaModels() {
             }
         } else {
             modelSelect.innerHTML = '<option value="">(no models found — run: ollama pull llama3.2)</option>';
-            if (data.error) toast('Ollama: ' + data.error, 'error');
+            if (data.error && showErrors) toast('Ollama: ' + data.error, 'error');
         }
     } catch (e) {
         modelSelect.innerHTML = '<option value="">(could not reach Ollama)</option>';
+        if (showErrors) toast('Ollama: could not connect', 'error');
     }
 }
 
@@ -2876,7 +2946,7 @@ async function generateWithAI() {
 
     if (!apiKey && provider !== 'ollama') {
         toast('Set your API key in Settings → AI Generation', 'error');
-        switchTab(document.querySelectorAll('.tab')[3], 'settings');
+        switchTab(document.querySelectorAll('.tab-bar .tab')[2], 'settings');
         return;
     }
 
@@ -2904,9 +2974,6 @@ async function generateWithAI() {
         if (resp.ok && data.scenes) {
             storyboard = data;
             syncUI();
-            // Switch to Scenes tab so the user can immediately see the result
-            const scenesTab = [...document.querySelectorAll('.tab')].find(t => t.textContent.trim() === 'Scenes');
-            if (scenesTab) switchTab(scenesTab, 'scenes');
             toast('Storyboard generated! ' + data.scenes.length + ' scenes ready.', 'success');
         } else if (resp.ok && !data.scenes) {
             console.error('Generate returned 200 but no scenes:', data);
@@ -3103,28 +3170,7 @@ function toast(msg, type = '') {
 }
 const showToast = toast;
 
-// ── Sidebar Resize ──
-(function() {
-    const handle = document.getElementById('sidebarResize');
-    const sidebar = document.getElementById('sidebar');
-    let startX, startW;
-    handle.addEventListener('mousedown', function(e) {
-        startX = e.clientX; startW = sidebar.offsetWidth;
-        handle.classList.add('active');
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-        e.preventDefault();
-    });
-    function onMove(e) {
-        const w = Math.max(280, Math.min(700, startW + e.clientX - startX));
-        sidebar.style.width = w + 'px';
-    }
-    function onUp() {
-        handle.classList.remove('active');
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-    }
-})();
+// (sidebar resize removed — left panel is collapse-only now)
 </script>
 </body>
 </html>
