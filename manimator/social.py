@@ -165,6 +165,8 @@ def generate_post_copy(storyboard_data: dict, platform: str) -> dict:
     meta = storyboard_data["meta"]
     scenes = storyboard_data["scenes"]
     title = meta["title"]
+    branding = meta.get("branding") or {}
+    custom_cta = branding.get("cta_text", "")
 
     content = _extract_content(scenes)
     key_points = content["key_points"]
@@ -191,7 +193,7 @@ def generate_post_copy(storyboard_data: dict, platform: str) -> dict:
             for s in stats[:3]:
                 caption += f"{s}\n"
             caption += "\n"
-        caption += "Follow for more science content!\n\n"
+        caption += f"{custom_cta or 'Follow for more science content!'}\n\n"
         hashtags.extend(["#science", "#research", "#education", "#learnontiktok"])
         caption += " ".join(hashtags[:15])
 
@@ -219,7 +221,7 @@ def generate_post_copy(storyboard_data: dict, platform: str) -> dict:
             for ref in references[:4]:
                 post += f"  {ref}\n"
             post += "\n"
-        post += "What aspect should I cover next?\n\n"
+        post += f"{custom_cta or 'What aspect should I cover next?'}\n\n"
         hashtags.extend(["#science", "#research", "#datascience"])
         post += " ".join(hashtags[:8])
 

@@ -103,9 +103,13 @@ def generate_narration_script(scene_data: dict) -> str:
 
     if stype == "closing":
         refs = scene_data.get("references", [])
+        cta = scene_data.get("cta_text", "")
+        parts = []
         if refs:
-            return f"This presentation drew from {len(refs)} key references in the literature."
-        return "Thank you for watching."
+            parts.append(f"This presentation drew from {len(refs)} key references in the literature.")
+        if cta:
+            parts.append(cta)
+        return " ".join(parts) if parts else "Thank you for watching."
 
     return ""
 

@@ -41,6 +41,7 @@ body {
     flex-direction: column;
     position: relative;
     overflow: hidden;
+    animation: kenBurns 8s ease-in-out forwards;
 }
 
 /* ── Keyframes ── */
@@ -114,6 +115,10 @@ body {
     50%  { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
+@keyframes kenBurns {
+    from { transform: scale(1.0); }
+    to { transform: scale(1.03); }
+}
 
 .anim-item {
     opacity: 0;
@@ -176,17 +181,32 @@ def _esc(text: str) -> str:
     return html.escape(str(text))
 
 
-def _wrap_page(body_html: str, css: str, bg_color: str = "#FAFAFA") -> str:
+def _wrap_page(body_html: str, css: str, bg_color: str = "#FAFAFA",
+               branding: dict | None = None) -> str:
+    watermark_html = ""
+    if branding:
+        wm = branding.get("watermark_text") or branding.get("channel_name") or ""
+        if wm:
+            watermark_html = f'<div class="watermark">{_esc(wm)}</div>'
+    watermark_css = """
+.watermark {
+    position: fixed; top: 40px; right: 40px; z-index: 100;
+    font-size: 18px; font-weight: 700; letter-spacing: 1px;
+    color: rgba(255,255,255,0.25); pointer-events: none;
+    text-transform: uppercase;
+}
+""" if watermark_html else ""
     return f"""<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <style>
 {_BASE_CSS}
+{watermark_css}
 body {{ background: {bg_color}; }}
 {css}
 </style>
 </head>
-<body>{body_html}</body>
+<body>{watermark_html}{body_html}</body>
 </html>"""
 
 
@@ -221,21 +241,28 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
 # HOOK SCENE — Bold, attention-grabbing opening
 # ══════════════════════════════════════════════════════════════════════════════
 
-def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
+def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None,
+               branding: dict | None = None) -> str:
     c = _tc(theme)
     words = data["hook_text"].split()
     subtitle = data.get("subtitle", "")
+    accent_label = (branding or {}).get("accent_label") or "Watch This"
 
-    word_spans = []
-    for i, w in enumerate(words):
-        delay = 0.4 + i * 0.1
-        word_spans.append(
-            f'<span class="anim-item hook-word" '
-            f'style="animation-name: fadeInUp; animation-delay: {delay:.2f}s; '
-            f'animation-duration: 0.5s">{_esc(w)}</span>'
-        )
-    words_html = " ".join(word_spans)
-    sub_delay = 0.4 + len(words) * 0.1 + 0.4
+    char_spans = []
+    char_idx = 0
+    for w_i, w in enumerate(words):
+        for ch in w:
+            delay = 0.4 + char_idx * 0.04
+            char_spans.append(
+                f'<span class="anim-item hook-char" '
+                f'style="animation-name: fadeInUp; animation-delay: {delay:.2f}s; '
+                f'animation-duration: 0.3s">{_esc(ch)}</span>'
+            )
+            char_idx += 1
+        if w_i < len(words) - 1:
+            char_spans.append('<span class="hook-space">&nbsp;</span>')
+    words_html = "".join(char_spans)
+    sub_delay = 0.4 + char_idx * 0.04 + 0.4
 
     css = f"""
     .scene {{
@@ -260,12 +287,13 @@ def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> st
     .accent-label {{ font-size: 22px; font-weight: 600; letter-spacing: 3px;
         text-transform: uppercase; color: rgba(255,255,255,0.5); }}
     .hook-text {{ font-size: 80px; font-weight: 900; line-height: 1.15; letter-spacing: -2px;
-        display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; }}
-    .hook-word {{ display: inline-block;
+        display: flex; flex-wrap: wrap; justify-content: center; gap: 0; }}
+    .hook-char {{ display: inline-block;
         background: linear-gradient(135deg, #ffffff 0%, {c['cyan']} 50%, {c['blue']} 100%);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         background-clip: text;
         filter: drop-shadow(0 2px 24px {_hex_to_rgba(c['blue'], 0.4)}); }}
+    .hook-space {{ display: inline-block; width: 18px; }}
     .hook-subtitle {{ font-size: 34px; font-weight: 500; letter-spacing: 1.5px;
         margin-top: 50px; color: rgba(255,255,255,0.55);
         opacity: 0; animation: fadeInUp 0.7s {sub_delay:.2f}s forwards; }}
@@ -286,7 +314,7 @@ def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> st
         <div class="hook-container">
             <div class="accent-pill">
                 <div class="accent-dot"></div>
-                <span class="accent-label">Watch This</span>
+                <span class="accent-label">{_esc(accent_label)}</span>
             </div>
             <div class="hook-text">{words_html}</div>
             {"<div class='hook-subtitle'>" + _esc(subtitle) + "</div>" if subtitle else ""}
@@ -294,7 +322,7 @@ def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> st
         <div class="bottom-accent"></div>
     </div>"""
 
-    return _wrap_page(body, css, c["bg_dark"])
+    return _wrap_page(body, css, c["bg_dark"], branding=branding)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -362,9 +390,10 @@ def bullet_list_scene(data: dict, theme: dict, timing: SceneTiming | None = None
         # timing.element_delays: [header, item_0, item_1, ..., callout]
         delay = timing.element_delays[i + 1] if timing and timing.element_delays and i + 1 < len(timing.element_delays) else 0.7 + i * 0.25
         color = c["palette"][i % len(c["palette"])]
+        anim = "slideInLeft" if i % 2 == 0 else "slideInRight"
         items_html += f"""
         <div class="bullet-card anim-item"
-             style="animation-name: popIn; animation-delay: {delay:.2f}s">
+             style="animation-name: {anim}; animation-delay: {delay:.2f}s">
             <div class="bullet-accent" style="background: linear-gradient(180deg, {color}, {_hex_to_rgba(color, 0.3)})"></div>
             <div class="bullet-num" style="color: {color}">{i+1:02d}</div>
             <div class="bullet-text">{_esc(item)}</div>
@@ -460,11 +489,27 @@ def flowchart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
 
         if i < len(stages) - 1:
             ad = delay + 0.2
+            next_color = c['palette'][(i+1) % len(c['palette'])]
             stages_html += f"""
             <div class="connector anim-item"
-                 style="animation-name: growHeight; animation-delay: {ad:.2f}s; animation-duration: 0.4s">
-                <div class="connector-line" style="background: linear-gradient(180deg, {color}, {c['palette'][(i+1) % len(c['palette'])]})"></div>
-                <div class="connector-arrow" style="border-top-color: {c['palette'][(i+1) % len(c['palette'])]}"></div>
+                 style="animation-name: fadeIn; animation-delay: {ad:.2f}s; animation-duration: 0.3s">
+                <svg width="60" height="42" viewBox="0 0 60 42" style="display:block;margin:0 auto">
+                    <defs>
+                        <linearGradient id="cg{i}" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="{color}"/>
+                            <stop offset="100%" stop-color="{next_color}"/>
+                        </linearGradient>
+                    </defs>
+                    <line x1="30" y1="0" x2="30" y2="32" stroke="url(#cg{i})" stroke-width="3"
+                          stroke-dasharray="32" stroke-dashoffset="32" stroke-linecap="round">
+                        <animate attributeName="stroke-dashoffset" from="32" to="0"
+                                 dur="0.4s" begin="{ad:.2f}s" fill="freeze"/>
+                    </line>
+                    <polygon points="22,30 30,42 38,30" fill="{next_color}" opacity="0">
+                        <animate attributeName="opacity" from="0" to="1"
+                                 dur="0.2s" begin="{ad+0.3:.2f}s" fill="freeze"/>
+                    </polygon>
+                </svg>
             </div>"""
 
     callout_delay = (timing.element_delays[-1] if timing and timing.element_delays else 0.5 + len(stages) * 0.35 + 0.5)
@@ -497,11 +542,8 @@ def flowchart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
                   border: 1.5px solid;
                   box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); }}
     .node-label {{ font-size: 36px; font-weight: 600; color: {c['text_dark']}; }}
-    .connector {{ height: 42px; display: flex; flex-direction: column; align-items: center;
-                  margin-left: 44px; overflow: hidden; }}
-    .connector-line {{ width: 3px; flex: 1; border-radius: 2px; }}
-    .connector-arrow {{ width: 0; height: 0; border-left: 8px solid transparent;
-                        border-right: 8px solid transparent; border-top: 10px solid; }}
+    .connector {{ height: 42px; display: flex; align-items: center; justify-content: center;
+                  margin-left: 44px; }}
     .callout-box {{ position: absolute; bottom: 90px; left: 50px; right: 50px;
                     background: linear-gradient(135deg, {_hex_to_rgba(c['green'], 0.1)}, {_hex_to_rgba(c['green'], 0.04)});
                     border: 1.5px solid {_hex_to_rgba(c['green'], 0.3)};
@@ -550,7 +592,7 @@ def bar_chart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
              style="animation-name: slideInLeft; animation-delay: {delay:.2f}s">
             <div class="bar-meta">
                 <span class="bar-label">{label}</span>
-                <span class="bar-value" style="color: {color}">{bar['value']}{_esc(suffix)}</span>
+                <span class="bar-value anim-item" style="color: {color}; animation-name: countUp; animation-delay: {delay+0.3:.2f}s; animation-duration: 0.6s">{bar['value']}{_esc(suffix)}</span>
             </div>
             <div class="bar-track">
                 <div class="bar-fill" style="background: linear-gradient(90deg, {color}, {_hex_to_rgba(color, 0.7)});
@@ -799,10 +841,12 @@ def scatter_plot_scene(data: dict, theme: dict, timing: SceneTiming | None = Non
             sy = (plot_h - m) - (y + 4) / 8 * (plot_h - 2*m)
             d = db + j * 0.015
             dots_svg += (f'<circle cx="{sx:.1f}" cy="{sy:.1f}" r="9" fill="{color}" opacity="0">'
-                        f'<animate attributeName="opacity" from="0" to="0.8" '
-                        f'dur="0.25s" begin="{d:.2f}s" fill="freeze"/>'
-                        f'<animate attributeName="r" from="0" to="9" '
-                        f'dur="0.3s" begin="{d:.2f}s" fill="freeze"/></circle>\n')
+                        f'<animate attributeName="opacity" from="0" to="0.85" '
+                        f'dur="0.2s" begin="{d:.2f}s" fill="freeze"/>'
+                        f'<animate attributeName="r" from="0" to="11" '
+                        f'dur="0.15s" begin="{d:.2f}s" fill="freeze"/>'
+                        f'<animate attributeName="r" from="11" to="9" '
+                        f'dur="0.15s" begin="{d+0.15:.2f}s" fill="freeze"/></circle>\n')
 
         legend_html += f"""
         <div class="legend-item anim-item"
@@ -1019,10 +1063,17 @@ def pipeline_diagram_scene(data: dict, theme: dict, timing: SceneTiming | None =
 # CLOSING — Dark, cinematic end card
 # ══════════════════════════════════════════════════════════════════════════════
 
-def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> str:
+def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None,
+                  branding: dict | None = None) -> str:
     c = _tc(theme)
     title = _esc(data.get("title", "Key References"))
     refs = data.get("references", [])
+    branding = branding or {}
+    # CTA priority: scene-level > branding-level > default
+    cta_text = (data.get("cta_text") or branding.get("cta_text")
+                or "Follow for more science!")
+    channel_name = branding.get("channel_name", "")
+    social_handles = branding.get("social_handles", [])
 
     refs_html = ""
     for i, ref in enumerate(refs):
@@ -1033,6 +1084,24 @@ def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None) ->
         </div>"""
 
     cta_delay = 0.9 + len(refs) * 0.2 + 0.5
+
+    socials_delay = cta_delay + 0.5
+    channel_delay = socials_delay + 0.3
+
+    # Social handles HTML
+    socials_html = ""
+    if social_handles:
+        handles = " &nbsp;&middot;&nbsp; ".join(_esc(h) for h in social_handles)
+        socials_html = (f'<div class="socials anim-item" '
+                        f'style="animation-name: fadeInUp; animation-delay: {socials_delay:.2f}s">'
+                        f'{handles}</div>')
+
+    # Channel name HTML
+    channel_html = ""
+    if channel_name:
+        channel_html = (f'<div class="channel-name anim-item" '
+                        f'style="animation-name: fadeInUp; animation-delay: {channel_delay:.2f}s">'
+                        f'{_esc(channel_name)}</div>')
 
     css = f"""
     .scene {{ background: linear-gradient(160deg, #080818 0%, {c['bg_dark']} 40%, #0d1b2a 100%);
@@ -1051,10 +1120,15 @@ def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None) ->
                 font-size: 16px; font-weight: 700;
                 display: flex; align-items: center; justify-content: center; }}
     .cta {{ font-size: 36px; font-weight: 700; margin-top: 60px;
-            background: linear-gradient(90deg, {c['blue']}, {c['cyan']});
+            background: linear-gradient(90deg, {c['blue']}, {c['cyan']}, {c['blue']});
+            background-size: 200% 100%;
             -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             background-clip: text;
-            opacity: 0; animation: fadeInUp 0.6s {cta_delay:.2f}s forwards; }}
+            opacity: 0; animation: fadeInUp 0.6s {cta_delay:.2f}s forwards, gradientShift 3s {cta_delay+0.6:.2f}s ease-in-out infinite; }}
+    .socials {{ font-size: 24px; color: rgba(255,255,255,0.45); margin-top: 24px;
+                letter-spacing: 0.5px; }}
+    .channel-name {{ font-size: 30px; font-weight: 700; color: rgba(255,255,255,0.7);
+                     margin-top: 18px; letter-spacing: 1px; }}
     .bottom-bar {{ position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
         background: linear-gradient(90deg, {c['blue']}, {c['green']}, {c['orange']});
         opacity: 0; animation: fadeIn 0.8s {cta_delay + 0.3:.2f}s forwards; }}
@@ -1072,15 +1146,20 @@ def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None) ->
             <div class="title">{title}</div>
             <div class="divider"></div>
             <div class="refs">{refs_html}</div>
-            <div class="cta">Follow for more science!</div>
+            <div class="cta">{_esc(cta_text)}</div>
+            {socials_html}
+            {channel_html}
         </div>
         <div class="bottom-bar"></div>
     </div>"""
 
-    return _wrap_page(body, css, c["bg_dark"])
+    return _wrap_page(body, css, c["bg_dark"], branding=branding)
 
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
+
+# Scenes that accept branding kwarg
+_BRANDING_SCENES = {"hook", "closing"}
 
 SCENE_RENDERERS = {
     "hook": hook_scene,
@@ -1098,13 +1177,18 @@ SCENE_RENDERERS = {
 
 
 def render_scene_html(scene_data: dict, theme: dict,
-                      timing: SceneTiming | None = None) -> str:
+                      timing: SceneTiming | None = None,
+                      branding: dict | None = None) -> str:
     """Render a scene to a production-quality HTML string.
 
     When *timing* is provided, element animation delays are driven by
     narration chunk durations instead of hardcoded CSS values.
+    When *branding* is provided, watermark/CTA/channel info is injected.
     """
-    renderer = SCENE_RENDERERS.get(scene_data.get("type", ""))
+    scene_type = scene_data.get("type", "")
+    renderer = SCENE_RENDERERS.get(scene_type)
     if renderer is None:
         return ""
+    if scene_type in _BRANDING_SCENES:
+        return renderer(scene_data, theme, timing=timing, branding=branding)
     return renderer(scene_data, theme, timing=timing)

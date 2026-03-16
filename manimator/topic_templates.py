@@ -316,12 +316,13 @@ SCENE_SCHEMAS = {
         },
     },
     "closing": {
-        "description": "Dark end card with references and follow CTA.",
+        "description": "Dark end card with references, CTA, and branding.",
         "fields": {
             "type": '"closing"',
             "id": "unique snake_case id (usually 'refs' or 'end')",
             "title": '(optional) default "Key References"',
             "references": "list of citation strings (Author et al. (Year) Journal)",
+            "cta_text": '(optional) call-to-action text, e.g. "Subscribe for weekly science!"',
         },
         "example": {
             "type": "closing",
@@ -330,7 +331,8 @@ SCENE_SCHEMAS = {
             "references": [
                 "Jinek et al. (2012) Science 337, 816-821",
                 "Doudna & Charpentier (2014) Science 346, 1258096"
-            ]
+            ],
+            "cta_text": "Follow for more science!"
         },
     },
 }

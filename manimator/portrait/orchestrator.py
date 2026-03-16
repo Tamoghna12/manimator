@@ -94,6 +94,10 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
     # Music can come from CLI or storyboard meta
     music = args.music or storyboard.meta.background_music
 
+    # Extract branding dict for HTML renderers
+    branding = (storyboard.meta.branding.model_dump()
+                if storyboard.meta.branding else None)
+
     log.info("%d scenes | theme=%s | format=%s (%dx%d)",
              len(storyboard.scenes), theme_name,
              fmt['name'], fmt['width'], fmt['height'])
@@ -187,7 +191,7 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
         scene_id = f"S{i:02d}_{sd['id']}"
         timing = scene_timings[i] if scene_timings and i < len(scene_timings) else None
 
-        html_content = render_scene_html(sd, theme, timing=timing)
+        html_content = render_scene_html(sd, theme, timing=timing, branding=branding)
         if not html_content:
             log.info("[SKIP] Unknown scene type: %s", sd.get('type'))
             continue
@@ -232,9 +236,11 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
     if output is None:
         output = args.storyboard.parent / f"{args.storyboard.stem}_{args.format}.webm"
 
+    scene_types = [sd.get("type", "") for sd in scene_data_list]
     concatenate_videos(
         [Path(v) for v in video_files],
         output,
+        scene_types=scene_types,
     )
     file_size = output.stat().st_size / (1024 * 1024)
 

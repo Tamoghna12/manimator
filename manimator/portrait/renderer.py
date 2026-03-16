@@ -300,8 +300,35 @@ def _get_duration(path: Path) -> float:
 
 # ── Concatenation with crossfade transitions ──────────────────────────────────
 
+def _pick_transition(prev_type: str, next_type: str) -> str:
+    """Pick an ffmpeg xfade transition based on adjacent scene types."""
+    # Opening scenes: dramatic wipes
+    if prev_type == "hook":
+        return "wipeleft"
+    # Into closing: fade to black feel
+    if next_type == "closing":
+        return "fade"
+    # Data viz transitions: smooth reveals
+    if next_type in ("bar_chart", "scatter_plot"):
+        return "slideup"
+    if next_type == "flowchart":
+        return "slidedown"
+    # Between comparison types: horizontal slide
+    if next_type in ("two_panel", "comparison_table"):
+        return "slideleft"
+    # Pipeline diagrams: circular reveal
+    if next_type == "pipeline_diagram":
+        return "circlecrop"
+    # Equations: scale in
+    if next_type == "equation":
+        return "smoothup"
+    # Default: smooth directional wipe
+    return "wiperight"
+
+
 def concatenate_videos(video_files: list[Path], output_path: Path,
-                       crossfade: float = 0.4) -> Path:
+                       crossfade: float = 0.5,
+                       scene_types: list[str] | None = None) -> Path:
     """Concatenate videos with crossfade transitions between scenes.
 
     Uses ffmpeg xfade filter for smooth scene transitions.
@@ -335,15 +362,16 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
     if n == 2:
         # Simple two-input crossfade
         offset = durations[0] - crossfade
+        transition = _pick_transition(scene_types[0], scene_types[1]) if scene_types else "fade"
         cmd = [
             "ffmpeg", "-y",
             "-i", str(normalized[0]),
             "-i", str(normalized[1]),
             "-filter_complex",
-            f"[0:v][1:v]xfade=transition=fade:duration={crossfade}:offset={offset:.3f}[v];"
+            f"[0:v][1:v]xfade=transition={transition}:duration={crossfade}:offset={offset:.3f}[v];"
             f"[0:a][1:a]acrossfade=d={crossfade}[a]"
             if any_audio else
-            f"[0:v][1:v]xfade=transition=fade:duration={crossfade}:offset={offset:.3f}[v]",
+            f"[0:v][1:v]xfade=transition={transition}:duration={crossfade}:offset={offset:.3f}[v]",
             "-map", "[v]",
             *(["-map", "[a]"] if any_audio else []),
             "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
@@ -374,8 +402,9 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
         for i in range(1, n):
             out_label = f"v{i}"
             offset = offsets[i-1]
+            transition = _pick_transition(scene_types[i-1], scene_types[i]) if scene_types else "fade"
             v_filters.append(
-                f"[{prev_label}][{i}:v]xfade=transition=fade:"
+                f"[{prev_label}][{i}:v]xfade=transition={transition}:"
                 f"duration={crossfade}:offset={offset:.3f}[{out_label}]"
             )
             prev_label = out_label

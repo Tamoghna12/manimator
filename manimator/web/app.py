@@ -737,21 +737,21 @@ HTML_TEMPLATE = r"""
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-    --bg: #0a0b10;
-    --bg-raised: #12131a;
-    --bg-card: #181a24;
-    --bg-card-hover: #1e2030;
-    --bg-input: #232736;
-    --border: #272b3f;
-    --border-subtle: #1f2234;
-    --border-focus: #5b6abf;
-    --text: #e8eaf4;
-    --text-secondary: #c0c4d8;
-    --text-muted: #6e7490;
-    --accent: #6c7bf0;
-    --accent-hover: #8b97f5;
-    --accent-dim: rgba(108,123,240,0.12);
-    --accent-glow: rgba(108,123,240,0.25);
+    --bg: #0c0f1a;
+    --bg-raised: #131827;
+    --bg-card: #1a2035;
+    --bg-card-hover: #222942;
+    --bg-input: #1e2540;
+    --border: #2a3355;
+    --border-subtle: #1e2845;
+    --border-focus: #3B82F6;
+    --text: #edf2f8;
+    --text-secondary: #b0bdd4;
+    --text-muted: #607098;
+    --accent: #3B82F6;
+    --accent-hover: #60A5FA;
+    --accent-dim: rgba(59,130,246,0.12);
+    --accent-glow: rgba(59,130,246,0.30);
     --green: #34d399;
     --green-dim: rgba(52,211,153,0.12);
     --orange: #f59e0b;
@@ -842,7 +842,7 @@ body {
 .sidebar-header {
     padding: 20px 24px 16px;
     border-bottom: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(108,123,240,0.06) 0%, transparent 100%);
+    background: linear-gradient(180deg, rgba(59,130,246,0.06) 0%, transparent 100%);
 }
 
 .sidebar-brand {
@@ -854,7 +854,7 @@ body {
 .sidebar-brand .logo {
     width: 32px; height: 32px;
     border-radius: 10px;
-    background: linear-gradient(135deg, var(--accent), var(--purple));
+    background: linear-gradient(135deg, #3B82F6, #8B5CF6);
     display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 800; color: white;
     box-shadow: 0 2px 8px var(--accent-glow);
@@ -864,7 +864,7 @@ body {
     font-size: 18px;
     font-weight: 800;
     letter-spacing: -0.3px;
-    background: linear-gradient(135deg, var(--accent), var(--purple));
+    background: linear-gradient(135deg, #3B82F6, #8B5CF6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
 }
@@ -901,7 +901,35 @@ body {
 }
 
 .tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.02); }
-.tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-dim); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); background: linear-gradient(180deg, var(--accent-dim), transparent); box-shadow: inset 0 -2px 8px var(--accent-dim); }
+
+/* ── Tab Transitions ── */
+.tab-content { animation: tabFadeIn 0.2s ease-out; }
+@keyframes tabFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── Drag & Drop Scenes ── */
+.scene-item { cursor: grab; }
+.scene-item:active { cursor: grabbing; }
+.scene-item.dragging { opacity: 0.4; }
+.scene-item.drag-over { border-top: 2px solid var(--accent); }
+
+/* ── Bottom Panel Transition ── */
+#bottomPanel { transition: max-height 0.3s cubic-bezier(0.4,0,0.2,1); overflow: hidden; }
+#bottomPanel:not(.show) { max-height: 36px !important; }
+#bottomPanel.show { max-height: 40vh; overflow: auto; }
+
+/* ── Sidebar Resize Handle ── */
+.sidebar-resize {
+    width: 5px;
+    cursor: col-resize;
+    background: transparent;
+    position: absolute;
+    top: 0; bottom: 0; right: -3px;
+    z-index: 10;
+    transition: background 0.15s;
+}
+.sidebar-resize:hover, .sidebar-resize.active { background: var(--accent); }
+.sidebar { position: relative; }
 
 /* ── Sidebar Content ── */
 .sidebar-content {
@@ -1216,13 +1244,13 @@ body {
 .btn:active { transform: scale(0.97); }
 
 .btn-primary {
-    background: var(--accent);
-    border-color: var(--accent);
+    background: linear-gradient(135deg, #3B82F6, #6366F1);
+    border-color: #3B82F6;
     color: white;
-    box-shadow: 0 2px 8px var(--accent-glow);
+    box-shadow: 0 2px 12px rgba(59,130,246,0.35);
 }
 
-.btn-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 12px var(--accent-glow); }
+.btn-primary:hover { background: linear-gradient(135deg, #60A5FA, #818CF8); box-shadow: 0 4px 16px rgba(59,130,246,0.45); }
 
 .btn-sm { padding: 5px 12px; font-size: 11px; border-radius: 6px; }
 
@@ -1338,12 +1366,15 @@ textarea {
 }
 
 .preview-frame iframe {
-    width: 270px;
-    height: 480px;
+    width: 1080px;
+    height: 1920px;
     border: 2px solid var(--border);
     border-radius: 16px;
     background: white;
-    transform-origin: top center;
+    transform: scale(0.25);
+    transform-origin: top left;
+    margin-bottom: -1440px;
+    margin-right: -810px;
     box-shadow: var(--shadow-lg);
 }
 
@@ -1688,7 +1719,8 @@ textarea {
 <body>
 <div class="app">
     <!-- ── Sidebar ── -->
-    <div class="sidebar">
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-resize" id="sidebarResize"></div>
         <div class="sidebar-header">
             <div class="sidebar-brand">
                 <div class="logo">M</div>
@@ -1700,14 +1732,14 @@ textarea {
         </div>
 
         <div class="tab-bar">
-            <div class="tab active" onclick="switchTab(this,'templates')">Templates</div>
+            <div class="tab active" onclick="switchTab(this,'guide')">Guide</div>
+            <div class="tab" onclick="switchTab(this,'templates')">Templates</div>
             <div class="tab" onclick="switchTab(this,'scenes')">Scenes</div>
             <div class="tab" onclick="switchTab(this,'settings')">Settings</div>
-            <div class="tab" onclick="switchTab(this,'guide')">Guide</div>
         </div>
 
         <!-- ════ Templates Tab ════ -->
-        <div class="sidebar-content tab-content" id="tab-templates">
+        <div class="sidebar-content tab-content" id="tab-templates" style="display:none">
 
             <!-- Quick Start -->
             <div class="quick-start">
@@ -1832,6 +1864,29 @@ textarea {
                 </div>
             </div>
             <div class="settings-section">
+                <h4>Branding &amp; CTA</h4>
+                <div class="form-group">
+                    <label class="form-label">Channel Name</label>
+                    <input type="text" id="brandChannel" placeholder="@YourChannel" onchange="updateMeta()" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">CTA Text</label>
+                    <input type="text" id="brandCta" placeholder="Follow for more science!" onchange="updateMeta()" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Hook Label</label>
+                    <input type="text" id="brandAccent" placeholder="Watch This" onchange="updateMeta()" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Social Handles (comma-separated)</label>
+                    <input type="text" id="brandSocials" placeholder="@handle1, @handle2" onchange="updateMeta()" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Watermark Text</label>
+                    <input type="text" id="brandWatermark" placeholder="Optional corner watermark" onchange="updateMeta()" />
+                </div>
+            </div>
+            <div class="settings-section">
                 <h4>AI Generation</h4>
                 <div class="form-group">
                     <label class="form-label">Provider</label>
@@ -1864,7 +1919,7 @@ textarea {
         </div>
 
         <!-- ════ Guide Tab ════ -->
-        <div class="sidebar-content tab-content" id="tab-guide" style="display:none">
+        <div class="sidebar-content tab-content" id="tab-guide">
             <div class="guide-content">
                 <div class="guide-section" style="margin-top:16px">
                     <h3>How It Works</h3>
@@ -2054,12 +2109,12 @@ textarea {
 </div>
 
 <!-- Pipeline & Analytics Panels (collapsible bottom bar) -->
-<div style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-raised);border-top:1px solid var(--border);z-index:100;max-height:40vh;overflow:auto" id="bottomPanel">
+<div style="position:fixed;bottom:0;left:0;right:0;background:var(--bg-raised);border-top:1px solid var(--border);z-index:100;max-height:40vh;overflow:auto" id="bottomPanel" class="">
     <div style="display:flex;gap:0;border-bottom:1px solid var(--border)">
         <button class="btn btn-sm" onclick="toggleBottom('pipeline')" style="border-radius:0;border:none;border-right:1px solid var(--border)">Pipeline</button>
         <button class="btn btn-sm" onclick="toggleBottom('analytics')" style="border-radius:0;border:none;border-right:1px solid var(--border)">Analytics</button>
         <span style="flex:1"></span>
-        <button class="btn btn-sm" onclick="document.getElementById('bottomPanel').style.display='none'" style="border-radius:0;border:none">Close</button>
+        <button class="btn btn-sm" onclick="toggleBottom(null)" style="border-radius:0;border:none">Close</button>
     </div>
     <div id="panelPipeline" style="display:none;padding:16px">
         <!-- Bulk CSV Import -->
@@ -2108,9 +2163,16 @@ textarea {
 </div>
 <script>
 document.getElementById('bottomPanel').style.display = 'none';
+let _activeBottomPanel = null;
 function toggleBottom(panel) {
     const bp = document.getElementById('bottomPanel');
-    bp.style.display = 'block';
+    if (panel === null || panel === _activeBottomPanel) {
+        bp.classList.remove('show');
+        _activeBottomPanel = null;
+        return;
+    }
+    _activeBottomPanel = panel;
+    bp.classList.add('show');
     document.getElementById('panelPipeline').style.display = panel === 'pipeline' ? 'block' : 'none';
     document.getElementById('panelAnalytics').style.display = panel === 'analytics' ? 'block' : 'none';
     if (panel === 'pipeline') { loadPipelineStatus(); loadPipelineVideos(); }
@@ -2313,6 +2375,13 @@ function syncUI() {
     document.getElementById('metaTitle').value = storyboard.meta?.title || '';
     document.getElementById('metaTheme').value = storyboard.meta?.color_theme || 'wong';
     document.getElementById('metaFormat').value = storyboard.meta?.format || 'instagram_reel';
+    // Branding
+    const br = storyboard.meta?.branding || {};
+    document.getElementById('brandChannel').value = br.channel_name || '';
+    document.getElementById('brandCta').value = br.cta_text || '';
+    document.getElementById('brandAccent').value = br.accent_label || '';
+    document.getElementById('brandSocials').value = (br.social_handles || []).join(', ');
+    document.getElementById('brandWatermark').value = br.watermark_text || '';
     renderSceneList();
     updatePreviewDropdown();
     updateEngineHint();
@@ -2370,7 +2439,14 @@ function renderSceneList() {
         const active = i === selectedSceneIdx ? 'active' : '';
         const label = scene.header || scene.title || scene.hook_text || scene.id || '(unnamed)';
         el.innerHTML += `
-            <div class="scene-item ${active}" onclick="selectScene(${i})">
+            <div class="scene-item ${active}" onclick="selectScene(${i})"
+                 draggable="true"
+                 ondragstart="onSceneDragStart(event,${i})"
+                 ondragover="onSceneDragOver(event)"
+                 ondragenter="onSceneDragEnter(event)"
+                 ondragleave="onSceneDragLeave(event)"
+                 ondrop="onSceneDrop(event,${i})"
+                 ondragend="onSceneDragEnd(event)">
                 <span class="scene-num">${i+1}</span>
                 <span class="scene-badge">${scene.type}</span>
                 <span class="scene-label">${label.substring(0, 35)}</span>
@@ -2398,6 +2474,26 @@ function moveScene(idx, dir) {
     if (selectedSceneIdx === idx) selectedSceneIdx = newIdx;
     syncUI();
 }
+
+// ── Drag & Drop ──
+let _dragSceneIdx = null;
+function onSceneDragStart(e, idx) { _dragSceneIdx = idx; e.currentTarget.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+function onSceneDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function onSceneDragEnter(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+function onSceneDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function onSceneDrop(e, targetIdx) {
+    e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+    if (_dragSceneIdx === null || _dragSceneIdx === targetIdx) return;
+    const scenes = storyboard.scenes;
+    const [moved] = scenes.splice(_dragSceneIdx, 1);
+    scenes.splice(targetIdx, 0, moved);
+    if (selectedSceneIdx === _dragSceneIdx) selectedSceneIdx = targetIdx;
+    else if (_dragSceneIdx < selectedSceneIdx && targetIdx >= selectedSceneIdx) selectedSceneIdx--;
+    else if (_dragSceneIdx > selectedSceneIdx && targetIdx <= selectedSceneIdx) selectedSceneIdx++;
+    _dragSceneIdx = null;
+    syncUI();
+}
+function onSceneDragEnd(e) { e.currentTarget.classList.remove('dragging'); _dragSceneIdx = null; }
 
 function deleteScene(idx) {
     storyboard.scenes.splice(idx, 1);
@@ -2430,7 +2526,7 @@ function insertScene(type) {
     selectedSceneIdx = storyboard.scenes.length - 1;
     syncUI();
     // Auto-switch to scenes tab
-    const scenesTab = document.querySelectorAll('.tab')[1];
+    const scenesTab = document.querySelectorAll('.tab')[2];
     switchTab(scenesTab, 'scenes');
     toast(`Added ${type} scene`, 'success');
 }
@@ -2471,6 +2567,25 @@ function updateMeta() {
     storyboard.meta.title = document.getElementById('metaTitle').value;
     storyboard.meta.color_theme = document.getElementById('metaTheme').value;
     storyboard.meta.format = document.getElementById('metaFormat').value;
+
+    // Branding
+    const ch = document.getElementById('brandChannel').value.trim();
+    const cta = document.getElementById('brandCta').value.trim();
+    const accent = document.getElementById('brandAccent').value.trim();
+    const socials = document.getElementById('brandSocials').value.trim();
+    const wm = document.getElementById('brandWatermark').value.trim();
+    if (ch || cta || accent || socials || wm) {
+        storyboard.meta.branding = {
+            channel_name: ch,
+            cta_text: cta,
+            accent_label: accent,
+            social_handles: socials ? socials.split(',').map(s => s.trim()).filter(Boolean) : [],
+            watermark_text: wm,
+        };
+    } else {
+        delete storyboard.meta.branding;
+    }
+
     document.getElementById('toolbarTitle').textContent = storyboard.meta.title;
     document.getElementById('jsonEditor').value = JSON.stringify(storyboard, null, 2);
     updateEngineHint();
@@ -2761,7 +2876,7 @@ async function generateWithAI() {
 
     if (!apiKey && provider !== 'ollama') {
         toast('Set your API key in Settings → AI Generation', 'error');
-        switchTab(document.querySelectorAll('.tab')[2], 'settings');
+        switchTab(document.querySelectorAll('.tab')[3], 'settings');
         return;
     }
 
@@ -2986,6 +3101,30 @@ function toast(msg, type = '') {
     el.className = `toast show ${type}`;
     setTimeout(() => el.classList.remove('show'), 3500);
 }
+const showToast = toast;
+
+// ── Sidebar Resize ──
+(function() {
+    const handle = document.getElementById('sidebarResize');
+    const sidebar = document.getElementById('sidebar');
+    let startX, startW;
+    handle.addEventListener('mousedown', function(e) {
+        startX = e.clientX; startW = sidebar.offsetWidth;
+        handle.classList.add('active');
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+        e.preventDefault();
+    });
+    function onMove(e) {
+        const w = Math.max(280, Math.min(700, startW + e.clientX - startX));
+        sidebar.style.width = w + 'px';
+    }
+    function onUp() {
+        handle.classList.remove('active');
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+    }
+})();
 </script>
 </body>
 </html>

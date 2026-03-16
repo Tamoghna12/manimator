@@ -5,6 +5,16 @@ from typing import Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class Branding(BaseModel):
+    """Customisable branding & call-to-action shown on every video."""
+    channel_name: str = ""            # e.g. "@ScienceExplained"
+    cta_text: str = ""                # e.g. "Follow for more science!"
+    accent_label: str = ""            # hook scene pill text (default "Watch This")
+    social_handles: list[str] = []    # e.g. ["@sci_explained", "youtube.com/SciX"]
+    watermark_text: str = ""          # persistent corner watermark
+    logo_url: str = ""                # URL or path to logo image
+
+
 class Meta(BaseModel):
     title: str
     author: str = "Auto-generated"
@@ -15,6 +25,7 @@ class Meta(BaseModel):
     format: str = "presentation"  # presentation, instagram_reel, linkedin, etc.
     pacing: str = ""              # auto, fast, medium, slow (empty = auto from format)
     background_music: Optional[str] = None  # preset name or file path
+    branding: Optional[Branding] = None
 
 
 # ── Scene types ─────────────────────────────────────────────────────────────
@@ -162,6 +173,7 @@ class ClosingScene(BaseModel):
     id: str
     title: str = "Key References"
     references: list[str] = []
+    cta_text: str = ""  # overrides meta.branding.cta_text for this scene
     narration_text: Optional[str] = None
 
 
