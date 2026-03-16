@@ -364,7 +364,7 @@ def api_render():
 
     job_id = str(uuid.uuid4())[:8]
     json_path = WORK_DIR / f"{job_id}.json"
-    output_path = WORK_DIR / f"{job_id}.webm"
+    output_path = WORK_DIR / f"{job_id}.mp4"
 
     with open(json_path, "w") as f:
         json.dump(storyboard, f, indent=2)
@@ -473,8 +473,8 @@ def api_download(job_id):
     output = Path(job["output"])
     if not output.exists() or not output.resolve().is_relative_to(WORK_DIR.resolve()):
         return jsonify({"error": "File not found"}), 404
-    return send_file(output, mimetype="video/webm", as_attachment=True,
-                     download_name=f"manimator_{job_id}.webm")
+    return send_file(output, mimetype="video/mp4", as_attachment=True,
+                     download_name=f"manimator_{job_id}.mp4")
 
 
 # ── Upload Routes ─────────────────────────────────────────────────────────────

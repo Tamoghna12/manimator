@@ -221,7 +221,7 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
                 continue
 
             try:
-                narrated = vf.parent / f"{vf.stem}_narrated.webm"
+                narrated = vf.parent / f"{vf.stem}_narrated.mp4"
                 merge_audio_video(vf, audio, narrated)
                 narrated_files.append(narrated)
             except Exception as e:
@@ -234,7 +234,7 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
     # ── 7. Concatenate ──
     output = args.output
     if output is None:
-        output = args.storyboard.parent / f"{args.storyboard.stem}_{args.format}.webm"
+        output = args.storyboard.parent / f"{args.storyboard.stem}_{args.format}.mp4"
 
     scene_types = [sd.get("type", "") for sd in scene_data_list]
     concatenate_videos(

@@ -176,18 +176,16 @@ def capture_scene_frames(html_path: Path, frames_dir: Path,
 
 def encode_frames_to_video(frames_dir: Path, output_path: Path,
                            fps: int = 60, crf: int = 18) -> Path:
-    """Encode PNG frames into a high-quality WebM video."""
+    """Encode PNG frames into a high-quality MP4 video."""
     cmd = [
         "ffmpeg", "-y",
         "-framerate", str(fps),
         "-i", str(frames_dir / "frame_%05d.png"),
-        "-c:v", "libvpx-vp9",
-        "-b:v", "0",           # CQ mode: let CRF drive quality, no bitrate cap
+        "-c:v", "libx264",
         "-crf", str(crf),
-        "-quality", "good",
-        "-speed", "4",
-        "-row-mt", "1",        # Parallel row encoding
-        "-pix_fmt", "yuva420p",
+        "-preset", "fast",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         "-an",                 # No audio yet
         str(output_path),
     ]
@@ -203,7 +201,7 @@ def capture_scene(html_path: Path, output_path: Path,
     """Capture a single HTML scene as a high-quality video.
 
     1. Renders each frame as a PNG screenshot
-    2. Encodes frames into WebM with ffmpeg
+    2. Encodes frames into MP4 with ffmpeg
     """
     frames_dir = output_path.parent / f"_frames_{output_path.stem}"
 
@@ -243,7 +241,7 @@ def render_all_scenes(html_dir: Path, scene_data_list: list,
 
     def _render_one(idx: int, html_file: Path, scene_data: dict) -> tuple[int, Path]:
         stem = html_file.stem
-        out_path = output_dir / f"{stem}.webm"
+        out_path = output_dir / f"{stem}.mp4"
         timing = scene_timings[idx] if scene_timings and idx < len(scene_timings) else None
         audio_dur = timing.total_duration - 0.5 if timing else None
         duration = _get_scene_duration(scene_data, audio_duration=audio_dur)
@@ -279,7 +277,7 @@ def _add_silent_audio(video_path: Path, output_path: Path) -> Path:
         "ffmpeg", "-y",
         "-i", str(video_path),
         "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-        "-c:v", "copy", "-c:a", "libopus", "-shortest",
+        "-c:v", "copy", "-c:a", "aac", "-shortest",
         str(output_path),
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -348,7 +346,7 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
 
     for vf in video_files:
         if any_audio and not _has_audio(vf):
-            silent_path = vf.parent / f"{vf.stem}_silent.webm"
+            silent_path = vf.parent / f"{vf.stem}_silent.mp4"
             _add_silent_audio(vf, silent_path)
             normalized.append(silent_path)
             tmp_files.append(silent_path)
@@ -374,9 +372,9 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
             f"[0:v][1:v]xfade=transition={transition}:duration={crossfade}:offset={offset:.3f}[v]",
             "-map", "[v]",
             *(["-map", "[a]"] if any_audio else []),
-            "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
-            "-quality", "good", "-speed", "4", "-row-mt", "1",
-            *(["-c:a", "libopus"] if any_audio else []),
+            "-c:v", "libx264", "-crf", "18", "-preset", "fast",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            *(["-c:a", "aac"] if any_audio else []),
             str(output_path),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -430,9 +428,9 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
             "-filter_complex", filter_complex,
             "-map", f"[{final_v}]",
             *(["-map", f"[{final_a}]"] if final_a else []),
-            "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
-            "-quality", "good", "-speed", "4", "-row-mt", "1",
-            *(["-c:a", "libopus"] if any_audio else []),
+            "-c:v", "libx264", "-crf", "18", "-preset", "fast",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            *(["-c:a", "aac"] if any_audio else []),
             str(output_path),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -463,9 +461,9 @@ def _simple_concat(video_files: list[Path], output_path: Path,
             "ffmpeg", "-y",
             "-f", "concat", "-safe", "0",
             "-i", concat_file,
-            "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
-            "-quality", "good", "-speed", "4", "-row-mt", "1",
-            *(["-c:a", "libopus"] if has_audio else []),
+            "-c:v", "libx264", "-crf", "18", "-preset", "fast",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+            *(["-c:a", "aac"] if has_audio else []),
             str(output_path),
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)

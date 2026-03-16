@@ -1,0 +1,141 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "How Gravity Works"
+  },
+  "scenes": [
+    {
+      "hook_text": "Why do things fall?",
+      "id": "gravity_hook",
+      "narration_text": null,
+      "subtitle": "A simple explanation of gravity",
+      "type": "hook"
+    },
+    {
+      "footnote": "Newton (1687), Einstein (1915)",
+      "id": "gravity_title",
+      "narration_text": null,
+      "subtitle": "From Newton to Einstein",
+      "title": "How Gravity Works: The Basics",
+      "type": "title"
+    },
+    {
+      "callout": "Gravity keeps us grounded",
+      "header": "Why Do Objects Fall?",
+      "id": "gravity_background",
+      "items": [
+        "Every object attracts every other object with a force proportional to their masses and inversely proportional to the square of the distance between them",
+        "This universal attraction is what we experience as weight",
+        "On Earth, gravity pulls objects toward the center of mass"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Mass curves spacetime; objects follow curved paths",
+      "header": "How Gravity Works Mechanistically",
+      "id": "gravity_mechanism",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Space-Time Curvature"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Mass Distribution"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Gravitational Field Lines"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "red",
+          "label": "Objects Move Along Geodesics"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Gravity",
+          "value": 1
+        },
+        {
+          "color_key": "green",
+          "label": "Electromagnetic",
+          "value": 0.21
+        },
+        {
+          "color_key": "orange",
+          "label": "Strong Nuclear",
+          "value": 0.0018
+        },
+        {
+          "color_key": "red",
+          "label": "Weak Nuclear",
+          "value": 2.7e-06
+        }
+      ],
+      "callout": "Gravity dominates on Earth",
+      "header": "Relative Strength of Fundamental Forces (at Earth)",
+      "id": "gravity_strength",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "% of strength"
+    },
+    {
+      "callout": "",
+      "header": "Gravity vs Inertial Mass",
+      "id": "gravity_vs_inertia",
+      "left_items": [
+        "F = G * (m1 * m2) / r^2",
+        "Mass is what responds to acceleration"
+      ],
+      "left_title": "Newton's View - Gravity Causes Acceleration",
+      "narration_text": null,
+      "right_items": [
+        "Mass curves spacetime",
+        "Objects follow curved paths (geodesics)"
+      ],
+      "right_title": "Einstein's View - Gravity is Curved Spacetime",
+      "type": "two_panel"
+    },
+    {
+      "callout": "Gravity's inverse-square nature explains falling objects",
+      "explanation": "Force between two masses is proportional to their product and inversely proportional to the square of the distance separating them",
+      "header": "Newton's Law of Universal Gravitation",
+      "id": "gravity_equation",
+      "latex": "F = G \\frac{m_1 m_2}{r^2}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "id": "gravity_closing",
+      "narration_text": null,
+      "references": [
+        "Newton, I. (1687). Philosophi\u00e6 Naturalis Principia Mathematica.",
+        "Einstein, A. (1915). 'On the Influence of Gravitation on the Propagation of Light', Annalen der Physik"
+      ],
+      "title": "Key Takeaways",
+      "type": "closing"
+    }
+  ]
+}

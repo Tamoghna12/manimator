@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "How Gravity Works"
+  },
+  "scenes": [
+    {
+      "hook_text": "Why do we stay on Earth?",
+      "id": "gravity_hook",
+      "narration_text": null,
+      "subtitle": "The invisible force that holds us down",
+      "type": "hook"
+    },
+    {
+      "callout": "Gravity keeps planets in orbit",
+      "header": "What is Gravity?",
+      "id": "gravity_background",
+      "items": [
+        "A fundamental force of nature",
+        "Caused by mass and energy curvature",
+        "Explained by Einstein's General Relativity"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Every object curves spacetime, attracting others",
+      "header": "How Gravity Works",
+      "id": "gravity_process",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Mass Curvature"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Spacetime Distortion"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Force Attraction"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Earth",
+          "value": 6.67e-11
+        },
+        {
+          "color_key": "green",
+          "label": "Sun",
+          "value": 1.33e-08
+        }
+      ],
+      "callout": "",
+      "header": "Strength of Gravity by Mass",
+      "id": "gravity_strength",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "N/kg^2"
+    },
+    {
+      "axes": [
+        "Distance (AU)",
+        "Amplitude (%)"
+      ],
+      "callout": "Gravity shapes the cosmos",
+      "clusters": [
+        {
+          "center": [
+            1.5,
+            0.8
+          ],
+          "color_key": "blue",
+          "label": "Planetary Orbits",
+          "n": 20,
+          "spread": 0.4
+        },
+        {
+          "center": [
+            -2,
+            -1.5
+          ],
+          "color_key": "red",
+          "label": "Tides",
+          "n": 20,
+          "spread": 0.4
+        }
+      ],
+      "header": "Gravitational Effects",
+      "id": "gravity_examples",
+      "narration_text": null,
+      "type": "scatter_plot"
+    },
+    {
+      "callout": "G is the gravitational constant",
+      "explanation": "Force between two masses is proportional to their product and inversely proportional to the square of the distance between them",
+      "header": "Newton's Law of Universal Gravitation",
+      "id": "gravity_equation",
+      "latex": "F = G \\frac{m_1 m_2}{r^2}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "callout": "",
+      "center_block": {
+        "color_key": "orange",
+        "items": [
+          "Inversion of satellite data",
+          "Numerical integration",
+          "Parameter estimation"
+        ],
+        "label": "Gravity Field Modeling"
+      },
+      "header": "Gravity Measurement Pipeline",
+      "id": "gravity_pipeline",
+      "left_track": {
+        "color_key": "blue",
+        "label": "Data Collection",
+        "sublabel": "Satellite orbits, laser ranging"
+      },
+      "narration_text": null,
+      "right_track": {
+        "color_key": "blue",
+        "label": "Modeling & Analysis",
+        "sublabel": "Ephemerides, perturbation theory"
+      },
+      "type": "pipeline_diagram"
+    },
+    {
+      "id": "gravity_references",
+      "narration_text": null,
+      "references": [
+        "Einstein (1915) Annalen der Physik 35, 697-801",
+        "Newton (1687) Philosophi\u00e6 Naturalis Principia Mathematica"
+      ],
+      "title": "Key References",
+      "type": "closing"
+    }
+  ]
+}

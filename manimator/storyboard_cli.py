@@ -249,7 +249,7 @@ def cmd_generate(args):
             output_path = "generated_storyboard.json"
             Path(output_path).write_text(output_str)
 
-        video_out = Path(output_path).stem + ".webm"
+        video_out = Path(output_path).stem + ".mp4"
         module = "manimator.portrait" if is_portrait else "manimator.orchestrator"
         cmd = ["python", "-m", module, "-s", output_path, "-o", video_out]
         if is_portrait:

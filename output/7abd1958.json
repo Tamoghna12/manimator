@@ -1,0 +1,159 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "How Gravity Works: The Basics"
+  },
+  "scenes": [
+    {
+      "hook_text": "Why do we stay on Earth?",
+      "id": "gravity_hook",
+      "narration_text": null,
+      "subtitle": "The invisible force that holds us down",
+      "type": "hook"
+    },
+    {
+      "callout": "Gravity keeps planets in orbit and objects falling.",
+      "header": "What is Gravity?",
+      "id": "gravity_background",
+      "items": [
+        "Force of attraction between masses",
+        "Every object exerts a pull on every other mass",
+        "Proportional to the product of their masses"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "The more mass, the stronger the pull.",
+      "header": "How Gravity Works",
+      "id": "gravity_process",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Masses"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Gravitational Force"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Acceleration"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "red",
+          "label": "Orbit Formation"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Sun",
+          "value": 27.2
+        },
+        {
+          "color_key": "green",
+          "label": "Earth",
+          "value": 1
+        },
+        {
+          "color_key": "orange",
+          "label": "Moon",
+          "value": 0.0128
+        }
+      ],
+      "callout": "The Sun dominates our local gravitational field.",
+      "header": "Gravitational Force Strength (1/r\u00b2)",
+      "id": "gravity_strength",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "% of Earth's gravity"
+    },
+    {
+      "axes": [
+        "Gravitational Force (m/s\u00b2)",
+        "Altitude (km)"
+      ],
+      "callout": "Gravity weakens with distance but never truly reaches zero.",
+      "clusters": [
+        {
+          "center": [
+            1,
+            10
+          ],
+          "color_key": "blue",
+          "label": "Low Altitude",
+          "n": 50,
+          "spread": 0.4
+        },
+        {
+          "center": [
+            0.0003,
+            100
+          ],
+          "color_key": "blue",
+          "label": "High Orbit",
+          "n": 30,
+          "spread": 0.4
+        }
+      ],
+      "header": "Gravity vs. Distance from Earth",
+      "id": "gravity_vs_distance",
+      "narration_text": null,
+      "type": "scatter_plot"
+    },
+    {
+      "callout": "G (6.674\u00d710\u207b\u00b9\u00b9 N\u00b7(m/kg)\u00b2) is the gravitational constant.",
+      "explanation": "Force between two masses is proportional to their product and inversely proportional to the square of the distance between them.",
+      "header": "Newton's Law of Universal Gravitation",
+      "id": "gravity_equation",
+      "latex": "F = G \\frac{m_1 m_2}{r^2}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "callout": "Precise measurements require accounting for all forces.",
+      "center_block": {
+        "color_key": "orange",
+        "items": [
+          "Remove motion due to Earth's rotation",
+          "Subtract known effects of tides and atmospheric pressure"
+        ],
+        "label": "Gravitational Acceleration Calculation"
+      },
+      "header": "Gravity Measurement Pipeline",
+      "id": "gravity_pipeline",
+      "left_track": {
+        "color_key": "blue",
+        "label": "Sensor Data",
+        "sublabel": "Accelerometer & GPS"
+      },
+      "narration_text": null,
+      "right_track": {
+        "color_key": "blue",
+        "label": "Processing",
+        "sublabel": "Filtering noise, calculating acceleration"
+      },
+      "type": "pipeline_diagram"
+    }
+  ]
+}

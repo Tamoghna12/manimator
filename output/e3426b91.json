@@ -1,0 +1,157 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "How Gravity Works"
+  },
+  "scenes": [
+    {
+      "hook_text": "Why do we stay on Earth?",
+      "id": "gravity_hook",
+      "narration_text": null,
+      "subtitle": "The invisible force that holds us down",
+      "type": "hook"
+    },
+    {
+      "footnote": "Newton & Einstein, 1687 & 1915",
+      "id": "gravity_title",
+      "narration_text": null,
+      "subtitle": "From the big to the tiny",
+      "title": "How Gravity Works",
+      "type": "title"
+    },
+    {
+      "callout": "Mass matters, distance matters",
+      "header": "What is gravity?",
+      "id": "gravity_background",
+      "items": [
+        "Force of attraction between masses",
+        "Every object pulls on every other",
+        "Strength depends on mass and distance"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Einstein's general relativity",
+      "header": "Gravity's Mechanism",
+      "id": "gravity_mechanism",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Curved Spacetime"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Mass warps space"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Objects follow curves"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "red",
+          "label": "Result: attraction"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Sun",
+          "value": 27
+        },
+        {
+          "color_key": "green",
+          "label": "Earth",
+          "value": 9
+        },
+        {
+          "color_key": "orange",
+          "label": "Moon",
+          "value": 1.6
+        },
+        {
+          "color_key": "red",
+          "label": "Atom nucleus",
+          "value": 0.001
+        }
+      ],
+      "callout": "",
+      "header": "Strength of Gravity by Mass",
+      "id": "gravity_strength",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "% of Earth's gravity"
+    },
+    {
+      "axes": [
+        "Inverse square law",
+        "Force (N)"
+      ],
+      "callout": "Double distance \u2192 quarter force",
+      "clusters": [
+        {
+          "center": [
+            8,
+            6
+          ],
+          "color_key": "blue",
+          "label": "Close",
+          "n": 30,
+          "spread": 0.2
+        },
+        {
+          "center": [
+            1,
+            3
+          ],
+          "color_key": "red",
+          "label": "Far",
+          "n": 30,
+          "spread": 0.2
+        }
+      ],
+      "header": "Gravity vs Distance",
+      "id": "gravity_vs_distance",
+      "narration_text": null,
+      "type": "scatter_plot"
+    },
+    {
+      "callout": "G is universal gravitational constant",
+      "explanation": "Force is proportional to mass and inversely proportional to the square of distance",
+      "header": "Newton's Law of Gravity",
+      "id": "gravity_equation",
+      "latex": "F = G \\frac{m_1 m_2}{r^2}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "id": "gravity_closing",
+      "narration_text": null,
+      "references": [
+        "Newton (1687) Philosophi\u00e6 Naturalis Principia Mathematica",
+        "Einstein (1915) Annalen der Physik"
+      ],
+      "title": "Key Takeaways",
+      "type": "closing"
+    }
+  ]
+}

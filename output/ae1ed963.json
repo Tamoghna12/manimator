@@ -1,0 +1,217 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "CRISPR Editing Explained"
+  },
+  "scenes": [
+    {
+      "hook_text": "CRISPR: Editing DNA in Seconds",
+      "id": "hook",
+      "narration_text": null,
+      "subtitle": "The fastest genome editing tool ever",
+      "type": "hook"
+    },
+    {
+      "footnote": "Jinek et al., 2012, Science",
+      "id": "crisper_title",
+      "narration_text": null,
+      "subtitle": "How It Works",
+      "title": "CRISPR-Cas9 Genome Editing",
+      "type": "title"
+    },
+    {
+      "callout": "From defense to medicine, one tool does it all.",
+      "header": "Why CRISPR?",
+      "id": "background",
+      "items": [
+        "Bacteria's immune system against viruses",
+        "Repurposed for precise genome editing",
+        "Versatile across species and applications"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Guide RNA finds the target, Cas9 cuts it.",
+      "header": "CRISPR Editing Process",
+      "id": "mechanism",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Design gRNA"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "cyan",
+          "label": "Assemble RNP complex"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Target PAM sequence"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Create DSB"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "red",
+          "label": "Repair DNA"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "NHEJ",
+          "value": 92
+        },
+        {
+          "color_key": "green",
+          "label": "HDR",
+          "value": 38
+        },
+        {
+          "color_key": "orange",
+          "label": "Base Editing",
+          "value": 78
+        },
+        {
+          "color_key": "red",
+          "label": "Prime Editing",
+          "value": 55
+        }
+      ],
+      "callout": "HDR needs a donor template.",
+      "header": "Editing Efficiency by Method",
+      "id": "efficiency",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "%"
+    },
+    {
+      "callout": "",
+      "header": "CRISPR Approaches Compared",
+      "id": "approaches",
+      "left_items": [
+        "Fast, error-prone",
+        "No template needed",
+        "High off-target risk"
+      ],
+      "left_title": "NHEJ (Non-Homologous End Joining)",
+      "narration_text": null,
+      "right_items": [
+        "Precise edits with donor DNA",
+        "Lower efficiency (~1-2%)",
+        "Used for targeted insertions/deletions"
+      ],
+      "right_title": "HDR (Homology-Directed Repair)",
+      "type": "two_panel"
+    },
+    {
+      "axes": [
+        "Gene Function (log scale)",
+        "Species Complexity"
+      ],
+      "callout": "From bacteria to humans, CRISPR adapts.",
+      "clusters": [
+        {
+          "center": [
+            2.5,
+            1.8
+          ],
+          "color_key": "blue",
+          "label": "Model Organisms",
+          "n": 30,
+          "spread": 0.4
+        },
+        {
+          "center": [
+            -1.2,
+            -0.9
+          ],
+          "color_key": "green",
+          "label": "Agriculture",
+          "n": 25,
+          "spread": 0.6
+        },
+        {
+          "center": [
+            1.8,
+            3.5
+          ],
+          "color_key": "orange",
+          "label": "Therapeutics",
+          "n": 20,
+          "spread": 0.5
+        }
+      ],
+      "header": "CRISPR Applications Across Species",
+      "id": "applications",
+      "narration_text": null,
+      "type": "scatter_plot"
+    },
+    {
+      "callout": "Balancing these pathways controls off-target effects.",
+      "explanation": "Total repair efficiency is a combination of NHEJ and HDR.",
+      "header": "DNA Double-Strand Break Repair Pathways",
+      "id": "dna_damage",
+      "latex": "\\frac{1}{\\text{Efficiency}} = \\frac{1}{NHEJ} + \\frac{1}{HDR}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "callout": "",
+      "center_block": {
+        "color_key": "orange",
+        "items": [
+          "PCR screening",
+          "Sanger sequencing",
+          "Off-target analysis"
+        ],
+        "label": "Validation"
+      },
+      "header": "CRISPR Experiment Workflow",
+      "id": "workflow",
+      "left_track": {
+        "color_key": "blue",
+        "label": "Design gRNA",
+        "sublabel": "Bioinformatics tools"
+      },
+      "narration_text": null,
+      "right_track": {
+        "color_key": "blue",
+        "label": "Delivery & Editing",
+        "sublabel": "Viral vectors, lipid nanoparticles"
+      },
+      "type": "pipeline_diagram"
+    },
+    {
+      "id": "references",
+      "narration_text": null,
+      "references": [
+        "Jinek, M., et al. (2012). A programmable dual-nuclease mechanism for CRISPR-Cas9 editing. Science 337, 816-821.",
+        "Doudna, J.A., Charpentier, E. (2014). The new frontier of genome engineering with CRISPR-Cas9. Science 346, 1258096."
+      ],
+      "title": "Key References",
+      "type": "closing"
+    }
+  ]
+}

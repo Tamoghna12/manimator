@@ -1,0 +1,177 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "How Gravity Works"
+  },
+  "scenes": [
+    {
+      "hook_text": "Why do we stay on Earth?",
+      "id": "gravity_hook",
+      "narration_text": null,
+      "subtitle": "The invisible force that holds us down",
+      "type": "hook"
+    },
+    {
+      "footnote": "Newton, 1687",
+      "id": "gravity_title",
+      "narration_text": null,
+      "subtitle": "From apples to galaxies",
+      "title": "How Gravity Works",
+      "type": "title"
+    },
+    {
+      "callout": "Gravity is the weakest but most pervasive of the fundamental forces.",
+      "header": "Background and Motivation",
+      "id": "background_bullet",
+      "items": [
+        "Invisible force acting at a distance",
+        "Universal attraction between masses",
+        "Keeps planets in orbit around stars"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "F = G * (m1*m2) / r^2",
+      "header": "Newton's Law of Universal Gravitation",
+      "id": "gravity_flow",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Inverse Square Law"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Force Calculation"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Orbital Motion"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Gravity",
+          "value": 10
+        },
+        {
+          "color_key": "green",
+          "label": "Electromagnetic",
+          "value": 100
+        },
+        {
+          "color_key": "red",
+          "label": "Strong Nuclear",
+          "value": 10000
+        },
+        {
+          "color_key": "orange",
+          "label": "Weak Nuclear",
+          "value": 1
+        }
+      ],
+      "callout": "Gravity is ~10^-39 times weaker than the strong nuclear force.",
+      "header": "Relative Strength of Fundamental Forces",
+      "id": "gravitational_strength",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "%"
+    },
+    {
+      "axes": [
+        "Force (N)",
+        "Distance (m)"
+      ],
+      "callout": "Force drops dramatically as distance increases.",
+      "clusters": [
+        {
+          "center": [
+            5,
+            1
+          ],
+          "color_key": "blue",
+          "label": "Close Objects",
+          "n": 30,
+          "spread": 0.3
+        },
+        {
+          "center": [
+            10,
+            10
+          ],
+          "color_key": "red",
+          "label": "Distant Objects",
+          "n": 20,
+          "spread": 2
+        }
+      ],
+      "header": "Gravitational Force vs Distance",
+      "id": "force_vs_distance",
+      "narration_text": null,
+      "type": "scatter_plot"
+    },
+    {
+      "callout": "This equation describes how gravity works for any two masses.",
+      "explanation": "G is the gravitational constant, r is distance between centers of mass.",
+      "header": "Newton's Gravitational Equation",
+      "id": "newtons_grav_eq",
+      "latex": "F = G \\frac{m_1 m_2}{r^2}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "callout": "",
+      "center_block": {
+        "color_key": "orange",
+        "items": [
+          "Gravity provides centripetal acceleration",
+          "Satellite maintains circular orbit"
+        ],
+        "label": "Centripetal Force Balance"
+      },
+      "header": "Gravity in Action: Satellite Orbits",
+      "id": "gravity_pipeline",
+      "left_track": {
+        "color_key": "blue",
+        "label": "Initial Conditions",
+        "sublabel": "Altitude, Masses"
+      },
+      "narration_text": null,
+      "right_track": {
+        "color_key": "blue",
+        "label": "Orbital Trajectory",
+        "sublabel": "Predicted Path"
+      },
+      "type": "pipeline_diagram"
+    },
+    {
+      "id": "gravity_closing",
+      "narration_text": null,
+      "references": [
+        "Newton, 1687. Philosophi\u00e6 Naturalis Principia Mathematica.",
+        "Einstein, 1915. Annalen der Physik 35: 697-801."
+      ],
+      "title": "Key Takeaways",
+      "type": "closing"
+    }
+  ]
+}

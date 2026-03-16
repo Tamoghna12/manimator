@@ -1,0 +1,126 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "branding": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "What is Time Travel?"
+  },
+  "scenes": [
+    {
+      "hook_text": "Is time travel possible?",
+      "id": "time_travel_hook",
+      "narration_text": null,
+      "subtitle": "Exploring the science of bending space and time.",
+      "type": "hook"
+    },
+    {
+      "footnote": "Based on Einstein's theories",
+      "id": "what_is_time_travel",
+      "narration_text": null,
+      "subtitle": "The Science Behind Bending Space-Time",
+      "title": "What is Time Travel?",
+      "type": "title"
+    },
+    {
+      "callout": "Time is relative to motion.",
+      "header": "Background and Motivation",
+      "id": "background_motivation",
+      "items": [
+        "Einstein's theory of relativity",
+        "Time as a dimension, not just an arrow",
+        "Gravity warps space-time"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Moving fast through space means moving slower in time.",
+      "header": "How Time Travel Works",
+      "id": "time_travel_process",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Accelerate near massive objects"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Travel at near light speed"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Open wormholes or shortcuts"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "callout": "",
+      "header": "Forward vs. Backward Time Travel",
+      "id": "forward_vs_backward",
+      "left_items": [
+        "Everyday experience, no special conditions"
+      ],
+      "left_title": "Forward",
+      "narration_text": null,
+      "right_items": [
+        "Requires extreme speeds or wormholes"
+      ],
+      "right_title": "Backward",
+      "type": "two_panel"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Accelerator Experiments",
+          "value": 99.9999
+        },
+        {
+          "color_key": "red",
+          "label": "Wormhole Theories",
+          "value": 0.0001
+        }
+      ],
+      "callout": "Current technology allows only tiny time dilation.",
+      "header": "Efforts and Challenges",
+      "id": "time_travel_efficiency",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "%"
+    },
+    {
+      "callout": "The faster you go, the slower time passes.",
+      "explanation": "Time slows down as velocity approaches light speed.",
+      "header": "Relativity and Time Dilation",
+      "id": "relativity_time_dilation",
+      "latex": "\\Delta t' = \\frac{\\Delta t}{\\sqrt{1 - v^2/c^2}}",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "cta_text": "Explore more at Our Science Hub!",
+      "id": "time_travel_conclusion",
+      "narration_text": null,
+      "references": [
+        "Einstein (1905) On the Electrodynamics of Moving Bodies",
+        "Kip Thorne & Stephen Hawking (1988) Black Holes and Time Warps"
+      ],
+      "title": "Is Time Travel Possible?",
+      "type": "closing"
+    }
+  ]
+}

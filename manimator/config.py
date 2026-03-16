@@ -84,7 +84,7 @@ SPACING = {
 # ── System paths ────────────────────────────────────────────────────────────
 FFMPEG_SYSTEM = "/usr/bin/ffmpeg"
 FFMPEG_CONDA = shutil.which("ffmpeg")
-INTERMEDIATE_FORMAT = ".webm"
+INTERMEDIATE_FORMAT = ".mp4"
 
 
 def set_theme(name: str):

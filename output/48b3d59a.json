@@ -1,0 +1,155 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "tol_bright",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "Matrix Multiplication Explained"
+  },
+  "scenes": [
+    {
+      "hook_text": "Matrix multiplication unlocks complex calculations",
+      "id": "hook_matrix_mult",
+      "narration_text": null,
+      "subtitle": "Here's how it works",
+      "type": "hook"
+    },
+    {
+      "callout": "Essential for linear algebra and AI models",
+      "header": "What is Matrix Multiplication?",
+      "id": "what_is_matmul",
+      "items": [
+        "Two matrices are multiplied element-wise",
+        "Rows of first matrix must match columns of second",
+        "Result has dimensions of outer matrices"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Result matrix has A's rows \u00d7 B's columns",
+      "header": "Step-by-Step Process",
+      "id": "matrix_multiplication_process",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Define matrices A & B"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "green",
+          "label": "Check dimensions match"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Multiply corresponding elements"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "red",
+          "label": "Sum products for each row/col"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "callout": "",
+      "header": "Rows vs Columns in Matrices",
+      "id": "row_vs_col_matrices",
+      "left_items": [
+        "Single row of elements",
+        "Used for vectors or coordinates",
+        "Dimension: 1 \u00d7 n"
+      ],
+      "left_title": "Row Matrix",
+      "narration_text": null,
+      "right_items": [
+        "Single column of elements",
+        "Represents a vector in space",
+        "Dimension: m \u00d7 1"
+      ],
+      "right_title": "Column Matrix",
+      "type": "two_panel"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Numpy",
+          "value": 95
+        },
+        {
+          "color_key": "green",
+          "label": "MATLAB",
+          "value": 80
+        },
+        {
+          "color_key": "orange",
+          "label": "Octave",
+          "value": 85
+        }
+      ],
+      "callout": "Numpy is fastest open-source option",
+      "header": "Speed Comparison (CPU)",
+      "id": "performance_comparison",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "%"
+    },
+    {
+      "callout": "Key to solving linear equations",
+      "explanation": "Element C[i][j] = \u03a3 (A[i][k] * B[k][j])",
+      "header": "Matrix Multiplication Formula",
+      "id": "matrix_multiplication_eq",
+      "latex": "C = A \u00d7 B",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "callout": "",
+      "center_block": {
+        "color_key": "orange",
+        "items": [
+          "Multiply corresponding elements",
+          "Sum products for each row/col"
+        ],
+        "label": "Element-wise Multiplication"
+      },
+      "header": "Matrix Multiplication Pipeline",
+      "id": "matmul_pipeline",
+      "left_track": {
+        "color_key": "blue",
+        "label": "Input Matrix A",
+        "sublabel": ""
+      },
+      "narration_text": null,
+      "right_track": {
+        "color_key": "blue",
+        "label": "Input Matrix B",
+        "sublabel": ""
+      },
+      "type": "pipeline_diagram"
+    },
+    {
+      "id": "references_matrix_mult",
+      "narration_text": null,
+      "references": [
+        "Strang, G. (2016). Introduction to Linear Algebra",
+        "Davison, A., & Abbott, R. (2004). Matrix Methods in Data Mining"
+      ],
+      "title": "Key References",
+      "type": "closing"
+    }
+  ]
+}

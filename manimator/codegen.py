@@ -60,7 +60,7 @@ def generate(storyboard: Storyboard, output_path: Path) -> list[str]:
     lines.append(f"config.pixel_width = {width}")
     lines.append(f"config.frame_height = {fmt.frame_height}")
     lines.append(f"config.frame_width = {fmt.frame_width}")
-    lines.append('config.movie_file_extension = ".webm"')
+    lines.append('config.movie_file_extension = ".mp4"')
     lines.append('config.background_color = COLORS["bg_main"]')
     lines.append("")
 

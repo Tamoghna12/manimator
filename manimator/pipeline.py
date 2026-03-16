@@ -488,8 +488,8 @@ class Pipeline:
     def _render_one(self, vid, storyboard, topic_row, narrate, voice, music):
         """Render storyboard to video file via subprocess.
 
-        Output is placed in RENDER_DIR/{category}/{vid}.webm when a category
-        is set, otherwise flat in RENDER_DIR/{vid}.webm.
+        Output is placed in RENDER_DIR/{category}/{vid}.mp4 when a category
+        is set, otherwise flat in RENDER_DIR/{vid}.mp4.
         """
         self._conn.execute("UPDATE videos SET status = 'rendering' WHERE id = ?", (vid,))
         self._conn.commit()
@@ -497,7 +497,7 @@ class Pipeline:
         category = topic_row.get("category") or ""
         out_dir = RENDER_DIR / _slugify(category) if category else RENDER_DIR
         out_dir.mkdir(parents=True, exist_ok=True)
-        output_path = out_dir / f"{vid}.webm"
+        output_path = out_dir / f"{vid}.mp4"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".json", delete=False, dir=str(RENDER_DIR)

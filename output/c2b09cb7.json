@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "resolution": [
+      1080,
+      1920
+    ],
+    "title": "how does gravity work"
+  },
+  "scenes": [
+    {
+      "hook_text": "Did you know about how does gravity work?",
+      "id": "scene_0",
+      "subtitle": "Here's how how does gravity work works",
+      "type": "hook"
+    },
+    {
+      "callout": "The complex scans 3 billion base pairs to find one 20-nt target.",
+      "header": "Core Components",
+      "id": "scene_1",
+      "items": [
+        "Guide RNA (gRNA): 20-nt spacer complementary to target DNA",
+        "Cas9 nuclease: HNH and RuvC catalytic domains",
+        "PAM sequence (5'-NGG-3'): required for recognition",
+        "RNP complex: gRNA-Cas9 assembly"
+      ],
+      "type": "bullet_list"
+    },
+    {
+      "callout": "DSB triggers NHEJ (error-prone) or HDR (precise) repair.",
+      "header": "Editing Mechanism",
+      "id": "scene_2",
+      "stages": [
+        {
+          "color_key": "blue",
+          "label": "gRNA Design"
+        },
+        {
+          "color_key": "cyan",
+          "label": "RNP Assembly"
+        },
+        {
+          "color_key": "green",
+          "label": "PAM Recognition"
+        },
+        {
+          "color_key": "orange",
+          "label": "DSB Creation"
+        },
+        {
+          "color_key": "red",
+          "label": "DNA Repair"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "NHEJ",
+          "value": 92
+        },
+        {
+          "color_key": "green",
+          "label": "HDR",
+          "value": 38
+        },
+        {
+          "color_key": "orange",
+          "label": "Base Editing",
+          "value": 78
+        },
+        {
+          "color_key": "red",
+          "label": "Prime Editing",
+          "value": 55
+        }
+      ],
+      "callout": "HDR requires donor template co-delivery.",
+      "header": "Editing Efficiency by Method",
+      "id": "scene_3",
+      "type": "bar_chart",
+      "value_suffix": "%"
+    },
+    {
+      "id": "scene_4",
+      "references": [
+        "Jinek et al. (2012) Science 337, 816-821",
+        "Doudna & Charpentier (2014) Science 346, 1258096"
+      ],
+      "title": "Key References",
+      "type": "closing"
+    }
+  ]
+}

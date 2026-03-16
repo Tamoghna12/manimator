@@ -165,7 +165,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
 
                 # Burn subtitles + merge audio
                 sub_style = "social" if fmt.pacing == "fast" else "academic"
-                output_sub = Path(vf).parent / f"{cn}_sub.webm"
+                output_sub = Path(vf).parent / f"{cn}_sub.mp4"
                 try:
                     burn_subtitles(Path(vf), srt_path, audio_path,
                                   output_sub, style=sub_style)
@@ -174,7 +174,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
                     log.error("[%s] Subtitle burn failed: %s", cn, e)
                     # Fallback to narration only
                     synthesize_audio(script, audio_path, voice=voice, rate=args.rate)
-                    narrated = Path(vf).parent / f"{cn}_narrated.webm"
+                    narrated = Path(vf).parent / f"{cn}_narrated.mp4"
                     try:
                         merge_audio_video(Path(vf), audio_path, narrated)
                         processed_files.append(str(narrated))
@@ -184,7 +184,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
                 # Narration only (no subtitles)
                 try:
                     synthesize_audio(script, audio_path, voice=voice, rate=args.rate)
-                    narrated = Path(vf).parent / f"{cn}_narrated.webm"
+                    narrated = Path(vf).parent / f"{cn}_narrated.mp4"
                     merge_audio_video(Path(vf), audio_path, narrated)
                     processed_files.append(str(narrated))
                 except Exception as e:
@@ -199,7 +199,7 @@ Formats: presentation, instagram_reel, instagram_square, linkedin,
     output = args.output
     if output is None:
         suffix = f"_{fmt_name}" if fmt_name != "presentation" else ""
-        output = args.storyboard.parent / f"{args.storyboard.stem}{suffix}.webm"
+        output = args.storyboard.parent / f"{args.storyboard.stem}{suffix}.mp4"
 
     concatenate(video_files, output)
     file_size = output.stat().st_size / (1024 * 1024)

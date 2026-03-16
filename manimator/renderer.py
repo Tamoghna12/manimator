@@ -43,7 +43,7 @@ def render_scene(args: tuple) -> str:
         for res_dir in sorted(videos_dir.iterdir(), reverse=True):
             if not res_dir.is_dir():
                 continue
-            candidate = res_dir / f"{class_name}.webm"
+            candidate = res_dir / f"{class_name}.mp4"
             if candidate.exists():
                 output_file = candidate
                 break
@@ -140,7 +140,7 @@ def concatenate(video_files: list[str], output_path: Path,
     for vf in video_files:
         if any_audio and not _has_audio_stream(vf):
             # Add silent audio track so concat works
-            silent_path = vf.rsplit(".", 1)[0] + "_silent.webm"
+            silent_path = vf.rsplit(".", 1)[0] + "_silent.mp4"
             _add_silent_audio(vf, silent_path)
             normalized.append(silent_path)
             tmp_files.append(silent_path)

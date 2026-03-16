@@ -20,7 +20,7 @@ class Meta(BaseModel):
     author: str = "Auto-generated"
     resolution: tuple[int, int] = (1920, 1080)
     fps: int = 60
-    output_format: Literal["webm", "mp4"] = "webm"
+    output_format: Literal["webm", "mp4"] = "mp4"
     color_theme: str = "wong"
     format: str = "presentation"  # presentation, instagram_reel, linkedin, etc.
     pacing: str = ""              # auto, fast, medium, slow (empty = auto from format)

@@ -1,0 +1,145 @@
+{
+  "meta": {
+    "author": "Auto-generated",
+    "background_music": null,
+    "color_theme": "wong",
+    "format": "instagram_reel",
+    "fps": 60,
+    "output_format": "webm",
+    "pacing": "",
+    "resolution": [
+      1920,
+      1080
+    ],
+    "title": "Can We Travel Through Time?"
+  },
+  "scenes": [
+    {
+      "hook_text": "Time travel could be real...",
+      "id": "time_travel_hook",
+      "narration_text": null,
+      "subtitle": "What does science say?",
+      "type": "hook"
+    },
+    {
+      "callout": "Time dilation allows theoretically infinite journeys forward.",
+      "header": "Why Time Travel?",
+      "id": "background_motivation",
+      "items": [
+        "Einstein's relativity: time is relative",
+        "Cosmic acceleration: faster travel through space = slower through time",
+        "Potential to test parallel universes"
+      ],
+      "narration_text": null,
+      "type": "bullet_list"
+    },
+    {
+      "callout": "Key to making faster-than-light travel possible.",
+      "header": "How Time Travel Works?",
+      "id": "time_travel_process",
+      "narration_text": null,
+      "recycle": null,
+      "stages": [
+        {
+          "bg": "#E8F4FD",
+          "color_key": "blue",
+          "label": "Warp Drive Design"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "cyan",
+          "label": "Exotic Matter Assembly"
+        },
+        {
+          "bg": "#E8F4FD",
+          "color_key": "orange",
+          "label": "Chroniton Beam Emission"
+        }
+      ],
+      "type": "flowchart"
+    },
+    {
+      "callout": "",
+      "header": "Wormholes vs Warp Drives?",
+      "id": "wormholes_vs_warp",
+      "left_items": [
+        "Cancels distance via curvature",
+        "Requires negative energy density",
+        "Predicted by general relativity"
+      ],
+      "left_title": "Wormhole Theory",
+      "narration_text": null,
+      "right_items": [
+        "Contracts space in front, expands behind",
+        "Uses Alcubierre metric expansion",
+        "Doesn't need exotic matter locally"
+      ],
+      "right_title": "Warp Drive Physics",
+      "type": "two_panel"
+    },
+    {
+      "bars": [
+        {
+          "color_key": "blue",
+          "label": "Warp Drive",
+          "value": 10
+        },
+        {
+          "color_key": "green",
+          "label": "Wormhole Travel",
+          "value": 50
+        }
+      ],
+      "callout": "Both exceed the speed of light when accounting for curvature.",
+      "header": "Speeds Achieved by Each Method",
+      "id": "speed_comparison",
+      "narration_text": null,
+      "type": "bar_chart",
+      "value_suffix": "% of light"
+    },
+    {
+      "callout": "Challenging the speed limit opens questions about causality.",
+      "explanation": "No information can travel faster than this constant in space-time.",
+      "header": "The Speed Limit",
+      "id": "speed_of_light",
+      "latex": "c = 299,792,458 m/s (in vacuum)",
+      "narration_text": null,
+      "type": "equation"
+    },
+    {
+      "callout": "",
+      "center_block": {
+        "color_key": "orange",
+        "items": [
+          "Maintain field without collapse",
+          "Guard against paradoxes"
+        ],
+        "label": "Temporal Stabilization"
+      },
+      "header": "A Possible Time Travel Framework",
+      "id": "time_travel_pipeline",
+      "left_track": {
+        "color_key": "blue",
+        "label": "Exotic Matter Preparation",
+        "sublabel": ""
+      },
+      "narration_text": null,
+      "right_track": {
+        "color_key": "blue",
+        "label": "Warp Field Activation",
+        "sublabel": ""
+      },
+      "type": "pipeline_diagram"
+    },
+    {
+      "id": "time_travel_reference",
+      "narration_text": null,
+      "references": [
+        "L. Perlick, Living Reviews in Relativity (2023)",
+        "Kip Thorne, Black Holes and Time Warps (1994)"
+      ],
+      "title": "Further Reading & Ideas",
+      "type": "closing"
+    }
+  ]
+}
