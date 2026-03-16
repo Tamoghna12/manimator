@@ -693,18 +693,18 @@ manimator/
 │  ── LLM path ──────────────────────────────────────────────────────  │
 │  topics.txt ──▶ Pipeline.add_topics() ──▶ SQLite (topics table)     │
 │  Pipeline.run_pipeline()                                             │
-│    ├── llm.generate_storyboard() ──▶ SQLite (storyboard_json)      │
-│    ├── subprocess (portrait/orchestrator) ──▶ renders/{id}.webm     │
+│    ├── llm.generate_storyboard() ──▶ SQLite (storyboard_json)        │
+│    ├── subprocess (portrait/orchestrator) ──▶ renders/{id}.webm      │
 │    └── uploader.upload_short() ──▶ YouTube ──▶ SQLite (youtube_id)  │
 │                                                                      │
-│  ── No-LLM path (no API keys required) ───────────────────────────  │
-│  story.json ──▶ Pipeline.add_storyboards() ──▶ SQLite (queued)     │
+│  ── No-LLM path (no API keys required) ───────────────────────────   │
+│  story.json ──▶ Pipeline.add_storyboards() ──▶ SQLite (queued)      │
 │  Pipeline.run_renders()                                              │
-│    ├── subprocess (portrait/orchestrator) ──▶ renders/{id}.webm     │
-│    └── [optional] uploader.upload_short() ──▶ YouTube               │
-│                                                                      │
+│    ├── subprocess (portrait/orchestrator) ──▶ renders/{id}.webm      │
+│    └── [optional] uploader.upload_short() ──▶ YouTube                │
+│                                                                       │
 │  Analytics.sync_metrics() ──▶ YouTube Analytics API ──▶ SQLite      │
-│  Analytics.get_insights() ──▶ domain performance, top videos, CTR   │
+│  Analytics.get_insights() ──▶ domain performance, top videos, CTR    │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
