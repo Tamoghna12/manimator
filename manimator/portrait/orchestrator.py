@@ -70,6 +70,10 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
     parser.add_argument("--rate", default="-5%", help="Speech rate")
     parser.add_argument("--fps", type=int, default=30)
     parser.add_argument(
+        "--workers", type=int, default=4,
+        help="Parallel scene renderers (Playwright instances). Default: 4",
+    )
+    parser.add_argument(
         "--music", default=None,
         help="Background music preset (ambient/corporate/cinematic) or path to MP3",
     )
@@ -198,7 +202,7 @@ Music presets: ambient, corporate, cinematic (or path to MP3 file)
     video_files = render_all_scenes(
         html_dir, scene_data_list, video_dir,
         width=fmt["width"], height=fmt["height"], fps=args.fps,
-        scene_timings=scene_timings,
+        scene_timings=scene_timings, workers=args.workers,
     )
     log.info("Captured in %.1fs", time.time() - t_render)
 

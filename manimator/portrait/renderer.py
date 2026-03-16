@@ -9,10 +9,11 @@ Scene transitions (crossfade) are added at the ffmpeg level.
 from __future__ import annotations
 
 import logging
+import os
+import shutil
 import subprocess
 import tempfile
-import shutil
-import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -184,7 +185,7 @@ def encode_frames_to_video(frames_dir: Path, output_path: Path,
         "-b:v", "0",           # CQ mode: let CRF drive quality, no bitrate cap
         "-crf", str(crf),
         "-quality", "good",
-        "-speed", "2",
+        "-speed", "4",
         "-row-mt", "1",        # Parallel row encoding
         "-pix_fmt", "yuva420p",
         "-an",                 # No audio yet
@@ -224,8 +225,12 @@ def render_all_scenes(html_dir: Path, scene_data_list: list,
                       output_dir: Path, width: int = 1080,
                       height: int = 1920, fps: int = 60,
                       scene_timings: list[SceneTiming | None] | None = None,
+                      workers: int = 4,
                       ) -> list[Path]:
-    """Render all HTML scenes to video files.
+    """Render all HTML scenes to video files in parallel.
+
+    Each scene is captured independently, so up to *workers* scenes are
+    rendered concurrently (separate Playwright browser instances).
 
     When *scene_timings* is provided, each scene's duration is derived
     from the narration audio length instead of being estimated from
@@ -233,21 +238,32 @@ def render_all_scenes(html_dir: Path, scene_data_list: list,
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     html_files = sorted(html_dir.glob("S*.html"))
-    results = []
+    n = len(html_files)
+    effective_workers = min(workers, n) if n else 1
 
-    for idx, (html_file, scene_data) in enumerate(zip(html_files, scene_data_list)):
+    def _render_one(idx: int, html_file: Path, scene_data: dict) -> tuple[int, Path]:
         stem = html_file.stem
         out_path = output_dir / f"{stem}.webm"
-
         timing = scene_timings[idx] if scene_timings and idx < len(scene_timings) else None
         audio_dur = timing.total_duration - 0.5 if timing else None
         duration = _get_scene_duration(scene_data, audio_duration=audio_dur)
-
-        log.info("Rendering %s (%.1fs, %d frames)...", stem, duration, int(duration*fps))
+        log.info("Rendering %s (%.1fs, %d frames)...", stem, duration, int(duration * fps))
         capture_scene(html_file, out_path, duration, width, height, fps)
-        results.append(out_path)
+        return idx, out_path
 
-    return results
+    results_map: dict[int, Path] = {}
+
+    with ThreadPoolExecutor(max_workers=effective_workers) as pool:
+        futures = {
+            pool.submit(_render_one, idx, html_file, scene_data): idx
+            for idx, (html_file, scene_data) in enumerate(zip(html_files, scene_data_list))
+        }
+        for future in as_completed(futures):
+            idx, out_path = future.result()   # re-raises exceptions from worker
+            results_map[idx] = out_path
+            log.info("Scene %d/%d done → %s", idx + 1, n, out_path.name)
+
+    return [results_map[i] for i in range(n)]
 
 
 # ── Audio helpers ─────────────────────────────────────────────────────────────
@@ -331,7 +347,7 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
             "-map", "[v]",
             *(["-map", "[a]"] if any_audio else []),
             "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
-            "-quality", "good", "-speed", "2", "-row-mt", "1",
+            "-quality", "good", "-speed", "4", "-row-mt", "1",
             *(["-c:a", "libopus"] if any_audio else []),
             str(output_path),
         ]
@@ -386,7 +402,7 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
             "-map", f"[{final_v}]",
             *(["-map", f"[{final_a}]"] if final_a else []),
             "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
-            "-quality", "good", "-speed", "2", "-row-mt", "1",
+            "-quality", "good", "-speed", "4", "-row-mt", "1",
             *(["-c:a", "libopus"] if any_audio else []),
             str(output_path),
         ]
@@ -419,7 +435,7 @@ def _simple_concat(video_files: list[Path], output_path: Path,
             "-f", "concat", "-safe", "0",
             "-i", concat_file,
             "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
-            "-quality", "good", "-speed", "2", "-row-mt", "1",
+            "-quality", "good", "-speed", "4", "-row-mt", "1",
             *(["-c:a", "libopus"] if has_audio else []),
             str(output_path),
         ]

@@ -350,7 +350,7 @@ def api_render():
                 "-o", str(output_path),
             ]
             if is_portrait:
-                cmd.extend(["--format", fmt])
+                cmd.extend(["--format", fmt, "--workers", "4"])
             else:
                 cmd.extend(["-q", "low"])
             if narrate:
