@@ -45,7 +45,7 @@ body {
 
 /* ── Keyframes ── */
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(50px); }
+    from { opacity: 0; transform: translateY(60px); }
     to { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn {
@@ -53,19 +53,26 @@ body {
     to { opacity: 1; }
 }
 @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.85); }
+    from { opacity: 0; transform: scale(0.82); }
     to { opacity: 1; transform: scale(1); }
 }
+/* Spring overshoot — items pop into place with a bounce */
+@keyframes popIn {
+    0%   { opacity: 0; transform: scale(0.75) translateY(30px); }
+    60%  { opacity: 1; transform: scale(1.04) translateY(-4px); }
+    80%  { transform: scale(0.98) translateY(2px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
 @keyframes slideInLeft {
-    from { opacity: 0; transform: translateX(-80px); }
+    from { opacity: 0; transform: translateX(-90px); }
     to { opacity: 1; transform: translateX(0); }
 }
 @keyframes slideInRight {
-    from { opacity: 0; transform: translateX(80px); }
+    from { opacity: 0; transform: translateX(90px); }
     to { opacity: 1; transform: translateX(0); }
 }
 @keyframes slideInDown {
-    from { opacity: 0; transform: translateY(-50px); }
+    from { opacity: 0; transform: translateY(-60px); }
     to { opacity: 1; transform: translateY(0); }
 }
 @keyframes growWidth {
@@ -83,30 +90,35 @@ body {
     100% { background-position: 200% 0; }
 }
 @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
 }
 @keyframes expandLine {
     from { transform: scaleX(0); }
     to { transform: scaleX(1); }
 }
 @keyframes rotateIn {
-    from { opacity: 0; transform: rotate(-10deg) scale(0.9); }
+    from { opacity: 0; transform: rotate(-12deg) scale(0.88); }
     to { opacity: 1; transform: rotate(0) scale(1); }
 }
 @keyframes countUp {
-    from { opacity: 0; transform: translateY(20px); }
+    from { opacity: 0; transform: translateY(24px); }
     to { opacity: 1; transform: translateY(0); }
 }
 @keyframes glowPulse {
     0%, 100% { box-shadow: 0 0 20px rgba(255,255,255,0.1); }
-    50% { box-shadow: 0 0 40px rgba(255,255,255,0.2); }
+    50% { box-shadow: 0 0 50px rgba(255,255,255,0.25); }
+}
+@keyframes gradientShift {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .anim-item {
     opacity: 0;
     animation-fill-mode: forwards;
-    animation-duration: 0.6s;
+    animation-duration: 0.65s;
     animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -115,8 +127,8 @@ body {
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
     background-size: 60px 60px;
     pointer-events: none;
 }
@@ -124,18 +136,38 @@ body {
 .bg-dots {
     position: absolute;
     inset: 0;
-    background-image: radial-gradient(circle, rgba(0,0,0,0.04) 1px, transparent 1px);
-    background-size: 40px 40px;
+    background-image: radial-gradient(circle, rgba(0,0,0,0.05) 1px, transparent 1px);
+    background-size: 36px 36px;
     pointer-events: none;
+}
+
+/* Subtle noise texture adds film-grain depth to flat areas */
+.bg-noise {
+    position: absolute;
+    inset: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+}
+
+/* Vignette adds cinematic edge-darkening */
+.vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.18) 100%);
+    pointer-events: none;
+    z-index: 10;
 }
 
 .gradient-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
+    filter: blur(90px);
     pointer-events: none;
     opacity: 0;
-    animation: fadeIn 1.5s 0.2s forwards;
+    animation: fadeIn 1.8s 0.2s forwards;
 }
 """
 
@@ -207,37 +239,55 @@ def hook_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> st
 
     css = f"""
     .scene {{
-        background: linear-gradient(160deg, #0a0a1a 0%, {c['bg_dark']} 40%, #0d1b2a 100%);
+        background: linear-gradient(160deg, #05050f 0%, {c['bg_dark']} 45%, #0a1628 100%);
         justify-content: center; align-items: center; padding: 80px;
     }}
-    .gradient-orb.orb1 {{ width: 600px; height: 600px; top: -100px; right: -150px;
-        background: {_hex_to_rgba(c['blue'], 0.15)}; }}
-    .gradient-orb.orb2 {{ width: 400px; height: 400px; bottom: 200px; left: -100px;
-        background: {_hex_to_rgba(c['purple'], 0.12)}; animation-delay: 0.5s; }}
+    .gradient-orb.orb1 {{ width: 700px; height: 700px; top: -150px; right: -180px;
+        background: radial-gradient(circle, {_hex_to_rgba(c['blue'], 0.2)}, transparent 70%); }}
+    .gradient-orb.orb2 {{ width: 500px; height: 500px; bottom: 150px; left: -120px;
+        background: radial-gradient(circle, {_hex_to_rgba(c['purple'], 0.16)}, transparent 70%);
+        animation-delay: 0.6s; }}
+    .gradient-orb.orb3 {{ width: 300px; height: 300px; bottom: 600px; right: 50px;
+        background: radial-gradient(circle, {_hex_to_rgba(c['cyan'], 0.1)}, transparent 70%);
+        animation-delay: 0.9s; }}
     .hook-container {{ position: relative; z-index: 2; text-align: center; }}
-    .accent-line {{ width: 80px; height: 4px; border-radius: 2px; margin: 0 auto 50px;
-        background: linear-gradient(90deg, {c['blue']}, {c['cyan']});
-        opacity: 0; animation: scaleIn 0.5s 0.2s forwards; }}
-    .hook-text {{ font-size: 76px; font-weight: 900; color: white;
-        line-height: 1.2; letter-spacing: -1px;
-        display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 16px; }}
+    .accent-pill {{ display: inline-flex; align-items: center; gap: 10px;
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 999px; padding: 10px 28px; margin-bottom: 50px;
+        opacity: 0; animation: fadeIn 0.5s 0.1s forwards; }}
+    .accent-dot {{ width: 8px; height: 8px; border-radius: 50%;
+        background: {c['cyan']}; animation: pulse 2s 0.8s infinite; }}
+    .accent-label {{ font-size: 22px; font-weight: 600; letter-spacing: 3px;
+        text-transform: uppercase; color: rgba(255,255,255,0.5); }}
+    .hook-text {{ font-size: 80px; font-weight: 900; line-height: 1.15; letter-spacing: -2px;
+        display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 18px; }}
     .hook-word {{ display: inline-block;
-        text-shadow: 0 2px 40px rgba(0,0,0,0.5); }}
-    .hook-subtitle {{ font-size: 34px; font-weight: 400; letter-spacing: 2px;
-        text-transform: uppercase; margin-top: 44px;
-        color: {_hex_to_rgba(c['cyan'], 0.8)};
-        opacity: 0; animation: fadeInUp 0.6s {sub_delay:.2f}s forwards; }}
-    .bottom-accent {{ position: absolute; bottom: 0; left: 0; right: 0; height: 6px;
-        background: linear-gradient(90deg, {c['blue']}, {c['green']}, {c['orange']});
-        opacity: 0; animation: fadeIn 0.8s {sub_delay + 0.3:.2f}s forwards; }}
+        background: linear-gradient(135deg, #ffffff 0%, {c['cyan']} 50%, {c['blue']} 100%);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        background-clip: text;
+        filter: drop-shadow(0 2px 24px {_hex_to_rgba(c['blue'], 0.4)}); }}
+    .hook-subtitle {{ font-size: 34px; font-weight: 500; letter-spacing: 1.5px;
+        margin-top: 50px; color: rgba(255,255,255,0.55);
+        opacity: 0; animation: fadeInUp 0.7s {sub_delay:.2f}s forwards; }}
+    .bottom-accent {{ position: absolute; bottom: 0; left: 0; right: 0; height: 5px;
+        background: linear-gradient(90deg, {c['blue']}, {c['cyan']}, {c['green']}, {c['orange']});
+        background-size: 300% 100%;
+        animation: gradientShift 4s linear infinite,
+                   fadeIn 0.8s {sub_delay + 0.2:.2f}s both; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-grid"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="gradient-orb orb1"></div>
         <div class="gradient-orb orb2"></div>
+        <div class="gradient-orb orb3"></div>
         <div class="hook-container">
-            <div class="accent-line"></div>
+            <div class="accent-pill">
+                <div class="accent-dot"></div>
+                <span class="accent-label">Watch This</span>
+            </div>
             <div class="hook-text">{words_html}</div>
             {"<div class='hook-subtitle'>" + _esc(subtitle) + "</div>" if subtitle else ""}
         </div>
@@ -258,28 +308,34 @@ def title_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -> s
     footnote = _esc(data.get("footnote", ""))
 
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e8eef5 55%, #f0f4f8 100%);
               justify-content: center; align-items: center; padding: 80px; }}
-    .gradient-orb.orb1 {{ width: 500px; height: 500px; top: 100px; left: -100px;
-        background: {_hex_to_rgba(c['blue'], 0.08)}; }}
+    .gradient-orb.orb1 {{ width: 700px; height: 700px; top: 50px; left: -150px;
+        background: radial-gradient(circle, {_hex_to_rgba(c['blue'], 0.09)}, transparent 70%); }}
+    .gradient-orb.orb2 {{ width: 450px; height: 450px; bottom: 200px; right: -100px;
+        background: radial-gradient(circle, {_hex_to_rgba(c['green'], 0.07)}, transparent 70%);
+        animation-delay: 0.4s; }}
     .title-container {{ position: relative; z-index: 2; text-align: center; }}
-    .title {{ font-size: 68px; font-weight: 900; color: {c['text_dark']};
-              line-height: 1.15; letter-spacing: -1.5px;
+    .title {{ font-size: 70px; font-weight: 900; color: {c['text_dark']};
+              line-height: 1.15; letter-spacing: -2px;
               opacity: 0; animation: fadeInUp 0.8s 0.3s forwards; }}
-    .divider {{ width: 100px; height: 5px; border-radius: 3px; margin: 40px auto;
+    .divider {{ width: 120px; height: 5px; border-radius: 3px; margin: 44px auto;
         background: linear-gradient(90deg, {c['blue']}, {c['green']});
         transform-origin: center; opacity: 0;
-        animation: scaleIn 0.5s 0.8s forwards; }}
+        animation: scaleIn 0.5s 0.85s forwards; }}
     .subtitle {{ font-size: 36px; color: {c['text_body']}; font-weight: 400;
-                 line-height: 1.5; opacity: 0; animation: fadeIn 0.6s 1.1s forwards; }}
+                 line-height: 1.55; opacity: 0; animation: fadeIn 0.7s 1.1s forwards; }}
     .footnote {{ font-size: 24px; color: {c['text_muted']}; position: absolute;
                  bottom: 140px; left: 80px; right: 80px; text-align: center;
-                 opacity: 0; animation: fadeIn 0.5s 1.5s forwards; }}
+                 opacity: 0; animation: fadeIn 0.5s 1.6s forwards; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="gradient-orb orb1"></div>
+        <div class="gradient-orb orb2"></div>
         <div class="title-container">
             <div class="title">{title}</div>
             <div class="divider"></div>
@@ -308,7 +364,7 @@ def bullet_list_scene(data: dict, theme: dict, timing: SceneTiming | None = None
         color = c["palette"][i % len(c["palette"])]
         items_html += f"""
         <div class="bullet-card anim-item"
-             style="animation-name: slideInLeft; animation-delay: {delay:.2f}s">
+             style="animation-name: popIn; animation-delay: {delay:.2f}s">
             <div class="bullet-accent" style="background: linear-gradient(180deg, {color}, {_hex_to_rgba(color, 0.3)})"></div>
             <div class="bullet-num" style="color: {color}">{i+1:02d}</div>
             <div class="bullet-text">{_esc(item)}</div>
@@ -326,40 +382,47 @@ def bullet_list_scene(data: dict, theme: dict, timing: SceneTiming | None = None
 
     header_delay = timing.header_delay if timing else 0.2
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 100px 60px; }}
-    .bg-dots {{ opacity: 0.5; }}
-    .header {{ font-size: 52px; font-weight: 800; color: {c['text_dark']};
-               letter-spacing: -0.5px; line-height: 1.2;
-               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
-    .header-accent {{ height: 4px; width: 60px; border-radius: 2px; margin: 20px 0 50px;
+    .bg-dots {{ opacity: 0.4; }}
+    .header {{ font-size: 54px; font-weight: 900; color: {c['text_dark']};
+               letter-spacing: -1px; line-height: 1.2;
+               opacity: 0; animation: fadeInUp 0.65s {header_delay:.2f}s forwards; }}
+    .header-accent {{ height: 5px; width: 70px; border-radius: 3px; margin: 22px 0 48px;
         background: linear-gradient(90deg, {c['blue']}, {c['green']});
         transform-origin: left; opacity: 0;
         animation: expandLine 0.5s 0.5s forwards; }}
     .bullet-card {{ display: flex; align-items: flex-start; gap: 20px;
-                    background: {c['bg_card']}; border-radius: 16px;
-                    padding: 28px 28px 28px 0; margin-bottom: 20px;
-                    box-shadow: 0 2px 20px rgba(0,0,0,0.04), 0 1px 4px rgba(0,0,0,0.06);
+                    background: {c['bg_card']}; border-radius: 20px;
+                    padding: 30px 30px 30px 0; margin-bottom: 22px;
+                    box-shadow:
+                        0 1px 2px rgba(0,0,0,0.04),
+                        0 4px 16px rgba(0,0,0,0.06),
+                        0 12px 32px rgba(0,0,0,0.04);
                     overflow: hidden; position: relative; }}
-    .bullet-accent {{ width: 5px; min-height: 100%; border-radius: 0 3px 3px 0;
+    .bullet-accent {{ width: 6px; min-height: 100%; border-radius: 0 4px 4px 0;
                       flex-shrink: 0; align-self: stretch; }}
-    .bullet-num {{ font-size: 28px; font-weight: 800; font-family: 'JetBrains Mono', monospace;
-                   flex-shrink: 0; margin-left: 16px; margin-top: 2px; }}
-    .bullet-text {{ font-size: 34px; color: {c['text_body']}; line-height: 1.45;
+    .bullet-num {{ font-size: 28px; font-weight: 900; font-family: 'JetBrains Mono', monospace;
+                   flex-shrink: 0; margin-left: 16px; margin-top: 2px; opacity: 0.8; }}
+    .bullet-text {{ font-size: 35px; color: {c['text_body']}; line-height: 1.45;
                     font-weight: 500; }}
     .callout-box {{ position: absolute; bottom: 90px; left: 50px; right: 50px;
                     display: flex; align-items: center; gap: 20px;
-                    background: linear-gradient(135deg, {_hex_to_rgba(c['orange'], 0.08)}, {_hex_to_rgba(c['orange'], 0.03)});
-                    border: 1.5px solid {_hex_to_rgba(c['orange'], 0.25)};
-                    border-radius: 16px; padding: 28px 32px; }}
-    .callout-icon {{ width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+                    background: linear-gradient(135deg, {_hex_to_rgba(c['orange'], 0.1)}, {_hex_to_rgba(c['orange'], 0.04)});
+                    border: 1.5px solid {_hex_to_rgba(c['orange'], 0.3)};
+                    border-radius: 18px; padding: 30px 34px;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['orange'], 0.1)}; }}
+    .callout-icon {{ width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
                      background: {c['orange']}; color: white; font-size: 24px; font-weight: 800;
-                     display: flex; align-items: center; justify-content: center; }}
+                     display: flex; align-items: center; justify-content: center;
+                     box-shadow: 0 4px 12px {_hex_to_rgba(c['orange'], 0.4)}; }}
     .callout-text {{ font-size: 30px; color: {c['text_dark']}; font-weight: 600; line-height: 1.4; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-accent"></div>
         {items_html}
@@ -388,7 +451,7 @@ def flowchart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
 
         stages_html += f"""
         <div class="flow-node anim-item"
-             style="animation-name: scaleIn; animation-delay: {delay:.2f}s">
+             style="animation-name: popIn; animation-delay: {delay:.2f}s">
             <div class="node-badge" style="background: {color}">{i+1}</div>
             <div class="node-card" style="border-color: {_hex_to_rgba(color, 0.3)}; background: linear-gradient(135deg, {c['bg_card']}, {bg_fade})">
                 <div class="node-label">{label}</div>
@@ -415,39 +478,43 @@ def flowchart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
 
     header_delay = timing.header_delay if timing else 0.15
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 90px 60px; align-items: center; }}
-    .header {{ font-size: 52px; font-weight: 800; color: {c['text_dark']};
-               text-align: center; letter-spacing: -0.5px;
-               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
-    .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px auto 40px;
+    .header {{ font-size: 54px; font-weight: 900; color: {c['text_dark']};
+               text-align: center; letter-spacing: -1px;
+               opacity: 0; animation: fadeInUp 0.65s {header_delay:.2f}s forwards; }}
+    .header-line {{ width: 70px; height: 5px; border-radius: 3px; margin: 22px auto 40px;
         background: linear-gradient(90deg, {c['blue']}, {c['green']});
         opacity: 0; animation: scaleIn 0.4s 0.4s forwards; }}
     .flow-container {{ display: flex; flex-direction: column; align-items: center; width: 100%; }}
     .flow-node {{ width: 100%; position: relative; }}
     .node-badge {{ position: absolute; left: 20px; top: 50%; transform: translateY(-50%);
-                   width: 48px; height: 48px; border-radius: 50%; color: white;
-                   font-size: 22px; font-weight: 800; z-index: 2;
+                   width: 52px; height: 52px; border-radius: 50%; color: white;
+                   font-size: 24px; font-weight: 900; z-index: 2;
                    display: flex; align-items: center; justify-content: center;
-                   box-shadow: 0 4px 12px rgba(0,0,0,0.15); }}
-    .node-card {{ margin-left: 84px; border-radius: 16px; padding: 30px 32px;
-                  border: 1.5px solid; box-shadow: 0 2px 16px rgba(0,0,0,0.04); }}
+                   box-shadow: 0 4px 20px rgba(0,0,0,0.2); }}
+    .node-card {{ margin-left: 88px; border-radius: 18px; padding: 30px 32px;
+                  border: 1.5px solid;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); }}
     .node-label {{ font-size: 36px; font-weight: 600; color: {c['text_dark']}; }}
-    .connector {{ height: 40px; display: flex; flex-direction: column; align-items: center;
+    .connector {{ height: 42px; display: flex; flex-direction: column; align-items: center;
                   margin-left: 44px; overflow: hidden; }}
     .connector-line {{ width: 3px; flex: 1; border-radius: 2px; }}
     .connector-arrow {{ width: 0; height: 0; border-left: 8px solid transparent;
                         border-right: 8px solid transparent; border-top: 10px solid; }}
     .callout-box {{ position: absolute; bottom: 90px; left: 50px; right: 50px;
-                    background: linear-gradient(135deg, {_hex_to_rgba(c['green'], 0.08)}, {_hex_to_rgba(c['green'], 0.03)});
-                    border: 1.5px solid {_hex_to_rgba(c['green'], 0.25)};
-                    border-radius: 16px; padding: 28px 32px; }}
+                    background: linear-gradient(135deg, {_hex_to_rgba(c['green'], 0.1)}, {_hex_to_rgba(c['green'], 0.04)});
+                    border: 1.5px solid {_hex_to_rgba(c['green'], 0.3)};
+                    border-radius: 18px; padding: 30px 34px;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['green'], 0.1)}; }}
     .callout-text {{ font-size: 30px; color: {c['text_dark']}; font-weight: 600;
                      line-height: 1.4; text-align: center; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-line"></div>
         <div class="flow-container">{stages_html}</div>
@@ -506,41 +573,47 @@ def bar_chart_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
 
     header_delay = timing.header_delay if timing else 0.2
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 100px 60px; }}
-    .header {{ font-size: 52px; font-weight: 800; color: {c['text_dark']};
-               letter-spacing: -0.5px;
-               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
-    .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px 0 50px;
+    .header {{ font-size: 54px; font-weight: 900; color: {c['text_dark']};
+               letter-spacing: -1px;
+               opacity: 0; animation: fadeInUp 0.65s {header_delay:.2f}s forwards; }}
+    .header-line {{ width: 70px; height: 5px; border-radius: 3px; margin: 22px 0 50px;
         background: linear-gradient(90deg, {c['blue']}, {c['orange']});
         transform-origin: left; opacity: 0;
         animation: expandLine 0.5s 0.4s forwards; }}
-    .bar-row {{ margin-bottom: 36px; }}
+    .bar-row {{ margin-bottom: 38px; }}
     .bar-meta {{ display: flex; justify-content: space-between; align-items: baseline;
-                 margin-bottom: 12px; }}
+                 margin-bottom: 14px; }}
     .bar-label {{ font-size: 34px; font-weight: 600; color: {c['text_body']}; }}
-    .bar-value {{ font-size: 40px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }}
-    .bar-track {{ background: {_hex_to_rgba(c['border'], 0.5)}; border-radius: 12px;
-                  height: 48px; overflow: hidden; }}
-    .bar-fill {{ height: 100%; border-radius: 12px; position: relative; overflow: hidden; }}
+    .bar-value {{ font-size: 42px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }}
+    .bar-track {{ background: rgba(0,0,0,0.06); border-radius: 14px;
+                  height: 52px; overflow: hidden;
+                  box-shadow: inset 0 2px 6px rgba(0,0,0,0.08); }}
+    .bar-fill {{ height: 100%; border-radius: 14px; position: relative; overflow: hidden;
+                 box-shadow: 0 4px 16px rgba(0,0,0,0.15); }}
     .bar-shimmer {{ position: absolute; inset: 0;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.25) 50%, transparent 100%);
         background-size: 200% 100%;
-        animation: shimmer 2s 1.5s ease-in-out infinite; }}
+        animation: shimmer 2.5s 1.2s ease-in-out infinite; }}
     .callout-box {{ position: absolute; bottom: 90px; left: 50px; right: 50px;
                     display: flex; align-items: center; gap: 20px;
-                    background: linear-gradient(135deg, {_hex_to_rgba(c['orange'], 0.08)}, {_hex_to_rgba(c['orange'], 0.03)});
-                    border: 1.5px solid {_hex_to_rgba(c['orange'], 0.25)};
-                    border-radius: 16px; padding: 28px 32px; }}
-    .callout-icon {{ width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+                    background: linear-gradient(135deg, {_hex_to_rgba(c['orange'], 0.1)}, {_hex_to_rgba(c['orange'], 0.04)});
+                    border: 1.5px solid {_hex_to_rgba(c['orange'], 0.3)};
+                    border-radius: 18px; padding: 30px 34px;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['orange'], 0.1)}; }}
+    .callout-icon {{ width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0;
                      background: {c['blue']}; color: white; font-size: 22px; font-weight: 800;
                      font-style: italic; font-family: serif;
-                     display: flex; align-items: center; justify-content: center; }}
+                     display: flex; align-items: center; justify-content: center;
+                     box-shadow: 0 4px 12px {_hex_to_rgba(c['blue'], 0.4)}; }}
     .callout-text {{ font-size: 30px; color: {c['text_dark']}; font-weight: 600; line-height: 1.4; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-line"></div>
         {bars_html}
@@ -589,31 +662,34 @@ def two_panel_scene(data: dict, theme: dict, timing: SceneTiming | None = None) 
         </div>"""
 
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 100px 50px; }}
-    .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               text-align: center; letter-spacing: -0.5px;
-               opacity: 0; animation: fadeInUp 0.6s 0.2s forwards; }}
-    .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px auto 40px;
+    .header {{ font-size: 50px; font-weight: 900; color: {c['text_dark']};
+               text-align: center; letter-spacing: -1px;
+               opacity: 0; animation: fadeInUp 0.65s 0.2s forwards; }}
+    .header-line {{ width: 70px; height: 5px; border-radius: 3px; margin: 22px auto 40px;
         background: linear-gradient(90deg, {c['blue']}, {c['red']});
         opacity: 0; animation: scaleIn 0.4s 0.4s forwards; }}
     .panels {{ display: flex; flex-direction: column; gap: 28px; }}
-    .panel {{ background: {c['bg_card']}; border-radius: 20px; padding: 32px;
-              box-shadow: 0 4px 24px rgba(0,0,0,0.06); }}
+    .panel {{ background: {c['bg_card']}; border-radius: 22px; padding: 34px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.06); }}
     .panel-header {{ font-size: 38px; font-weight: 700; padding-left: 20px; margin-bottom: 24px; }}
     ul {{ list-style: none; padding: 0; }}
     li {{ font-size: 30px; color: {c['text_body']}; padding: 14px 0;
           display: flex; align-items: flex-start; gap: 14px; line-height: 1.4; }}
     .item-dot {{ width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 10px; }}
     .callout-box {{ position: absolute; bottom: 90px; left: 50px; right: 50px;
-                    background: linear-gradient(135deg, {_hex_to_rgba(c['green'], 0.08)}, {_hex_to_rgba(c['green'], 0.03)});
-                    border: 1.5px solid {_hex_to_rgba(c['green'], 0.25)};
-                    border-radius: 16px; padding: 28px 32px; text-align: center; }}
+                    background: linear-gradient(135deg, {_hex_to_rgba(c['green'], 0.1)}, {_hex_to_rgba(c['green'], 0.04)});
+                    border: 1.5px solid {_hex_to_rgba(c['green'], 0.3)};
+                    border-radius: 18px; padding: 30px 34px; text-align: center;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['green'], 0.1)}; }}
     .callout-text {{ font-size: 30px; color: {c['text_dark']}; font-weight: 600; line-height: 1.4; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-line"></div>
         <div class="panels">{left}{right}</div>
@@ -653,32 +729,36 @@ def comparison_table_scene(data: dict, theme: dict, timing: SceneTiming | None =
 
     header_delay = timing.header_delay if timing else 0.2
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 100px 45px; }}
-    .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
-    .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 20px 0 40px;
+    .header {{ font-size: 50px; font-weight: 900; color: {c['text_dark']};
+               letter-spacing: -1px;
+               opacity: 0; animation: fadeInUp 0.65s {header_delay:.2f}s forwards; }}
+    .header-line {{ width: 70px; height: 5px; border-radius: 3px; margin: 22px 0 40px;
         background: {c['blue']}; transform-origin: left; opacity: 0;
         animation: expandLine 0.4s 0.4s forwards; }}
-    .table-wrap {{ border-radius: 20px; overflow: hidden;
-                   box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-                   opacity: 0; animation: fadeIn 0.4s 0.5s forwards; }}
+    .table-wrap {{ border-radius: 22px; overflow: hidden;
+                   box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.07);
+                   opacity: 0; animation: fadeIn 0.5s 0.5s forwards; }}
     table {{ width: 100%; border-collapse: collapse; }}
-    th {{ background: linear-gradient(135deg, {c['blue']}, {_hex_to_rgba(c['blue'], 0.85)});
-          color: white; font-size: 26px; font-weight: 700; padding: 22px 18px; text-align: left; }}
-    td {{ background: {c['bg_card']}; font-size: 25px; color: {c['text_body']};
-          padding: 18px 18px; border-bottom: 1px solid {c['border']}; font-weight: 500; }}
+    th {{ background: linear-gradient(135deg, {c['blue']}, {_hex_to_rgba(c['blue'], 0.82)});
+          color: white; font-size: 27px; font-weight: 700; padding: 24px 20px; text-align: left; }}
+    td {{ background: {c['bg_card']}; font-size: 26px; color: {c['text_body']};
+          padding: 20px 20px; border-bottom: 1px solid {c['border']}; font-weight: 500; }}
     tr:last-child td {{ border-bottom: none; }}
-    tr:nth-child(even) td {{ background: {_hex_to_rgba(c['blue'], 0.03)}; }}
+    tr:nth-child(even) td {{ background: {_hex_to_rgba(c['blue'], 0.025)}; }}
     .callout-box {{ position: absolute; bottom: 90px; left: 45px; right: 45px;
-                    background: {_hex_to_rgba(c['orange'], 0.06)};
-                    border: 1.5px solid {_hex_to_rgba(c['orange'], 0.2)};
-                    border-radius: 16px; padding: 24px 28px; text-align: center; }}
+                    background: {_hex_to_rgba(c['orange'], 0.08)};
+                    border: 1.5px solid {_hex_to_rgba(c['orange'], 0.25)};
+                    border-radius: 18px; padding: 26px 30px; text-align: center;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['orange'], 0.08)}; }}
     .callout-text {{ font-size: 28px; color: {c['text_dark']}; font-weight: 600; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-line"></div>
         <div class="table-wrap"><table><thead><tr>{th_cells}</tr></thead><tbody>{tr_html}</tbody></table></div>
@@ -742,29 +822,33 @@ def scatter_plot_scene(data: dict, theme: dict, timing: SceneTiming | None = Non
 
     header_delay = timing.header_delay if timing else 0.15
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 80px 50px; align-items: center; }}
-    .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               text-align: center; opacity: 0; animation: fadeInUp 0.6s {header_delay:.2f}s forwards; }}
-    .header-line {{ width: 60px; height: 4px; border-radius: 2px; margin: 16px auto 30px;
+    .header {{ font-size: 50px; font-weight: 900; color: {c['text_dark']};
+               text-align: center; letter-spacing: -1px;
+               opacity: 0; animation: fadeInUp 0.65s {header_delay:.2f}s forwards; }}
+    .header-line {{ width: 70px; height: 5px; border-radius: 3px; margin: 18px auto 30px;
         background: {c['blue']}; opacity: 0; animation: scaleIn 0.4s 0.4s forwards; }}
-    .plot-box {{ background: {c['bg_card']}; border-radius: 20px; padding: 20px;
-                 box-shadow: 0 4px 24px rgba(0,0,0,0.06);
-                 opacity: 0; animation: fadeIn 0.4s 0.4s forwards; }}
+    .plot-box {{ background: {c['bg_card']}; border-radius: 22px; padding: 22px;
+                 box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.06);
+                 opacity: 0; animation: fadeIn 0.5s 0.4s forwards; }}
     .legend {{ display: flex; flex-wrap: wrap; gap: 16px 28px; justify-content: center; margin-top: 28px; }}
     .legend-item {{ display: flex; align-items: center; gap: 10px; font-size: 28px;
                     color: {c['text_body']}; font-weight: 600; }}
     .ldot {{ width: 18px; height: 18px; border-radius: 50%; }}
     .axis-label {{ font-size: 22px; fill: {c['text_muted']}; font-weight: 600; }}
     .callout-box {{ position: absolute; bottom: 80px; left: 50px; right: 50px;
-                    background: {_hex_to_rgba(c['blue'], 0.06)};
-                    border: 1.5px solid {_hex_to_rgba(c['blue'], 0.2)};
-                    border-radius: 16px; padding: 24px 28px; text-align: center; }}
+                    background: {_hex_to_rgba(c['blue'], 0.08)};
+                    border: 1.5px solid {_hex_to_rgba(c['blue'], 0.25)};
+                    border-radius: 18px; padding: 26px 30px; text-align: center;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['blue'], 0.08)}; }}
     .callout-text {{ font-size: 28px; color: {c['text_dark']}; font-weight: 600; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-line"></div>
         <div class="plot-box">
@@ -796,32 +880,36 @@ def equation_scene(data: dict, theme: dict, timing: SceneTiming | None = None) -
     callout = data.get("callout", "")
 
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 100px 60px; justify-content: center; align-items: center; }}
     .eq-container {{ position: relative; z-index: 2; text-align: center; width: 100%; }}
-    .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               margin-bottom: 50px; opacity: 0; animation: fadeInUp 0.6s 0.2s forwards; }}
-    .eq-box {{ background: {c['bg_card']}; border-radius: 24px; padding: 50px 36px;
-               box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    .header {{ font-size: 50px; font-weight: 900; color: {c['text_dark']};
+               letter-spacing: -1px;
+               margin-bottom: 50px; opacity: 0; animation: fadeInUp 0.65s 0.2s forwards; }}
+    .eq-box {{ background: {c['bg_card']}; border-radius: 26px; padding: 54px 40px;
+               box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 12px 40px rgba(0,0,0,0.08);
                border: 1px solid {c['border']};
-               opacity: 0; animation: scaleIn 0.7s 0.6s forwards; }}
-    .eq-text {{ font-size: 38px; color: {c['text_dark']};
+               opacity: 0; animation: popIn 0.7s 0.6s forwards; }}
+    .eq-text {{ font-size: 40px; color: {c['text_dark']};
                 font-family: 'JetBrains Mono', monospace; line-height: 1.6;
                 word-break: break-all; }}
-    .explanation {{ font-size: 32px; color: {c['text_body']}; line-height: 1.5;
-                    margin-top: 44px; opacity: 0; animation: fadeIn 0.6s 1.2s forwards; }}
+    .explanation {{ font-size: 32px; color: {c['text_body']}; line-height: 1.55;
+                    margin-top: 46px; opacity: 0; animation: fadeIn 0.7s 1.2s forwards; }}
     .callout-box {{ position: absolute; bottom: 100px; left: 60px; right: 60px;
-                    background: {_hex_to_rgba(c['blue'], 0.06)};
-                    border: 1.5px solid {_hex_to_rgba(c['blue'], 0.2)};
-                    border-radius: 16px; padding: 28px 32px; text-align: center;
+                    background: {_hex_to_rgba(c['blue'], 0.08)};
+                    border: 1.5px solid {_hex_to_rgba(c['blue'], 0.25)};
+                    border-radius: 18px; padding: 30px 34px; text-align: center;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['blue'], 0.08)};
                     opacity: 0; animation: fadeInUp 0.5s 1.6s forwards; }}
     .callout-text {{ font-size: 30px; color: {c['text_dark']}; font-weight: 600; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
-        <div class="gradient-orb orb1" style="width:400px;height:400px;top:200px;right:-80px;
-             background:{_hex_to_rgba(c['blue'], 0.06)}"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
+        <div class="gradient-orb orb1" style="width:500px;height:500px;top:150px;right:-100px;
+             background:radial-gradient(circle, {_hex_to_rgba(c['blue'], 0.08)}, transparent 70%)"></div>
         <div class="eq-container">
             <div class="header">{header}</div>
             <div class="eq-box">
@@ -863,39 +951,44 @@ def pipeline_diagram_scene(data: dict, theme: dict, timing: SceneTiming | None =
         </div>"""
 
     css = f"""
-    .scene {{ background: linear-gradient(175deg, {c['bg']} 0%, #f0f4f8 100%);
+    .scene {{ background: linear-gradient(160deg, {c['bg']} 0%, #e9eff6 50%, #f2f5f8 100%);
               padding: 80px 50px; }}
-    .header {{ font-size: 48px; font-weight: 800; color: {c['text_dark']};
-               text-align: center; opacity: 0; animation: fadeInUp 0.6s 0.15s forwards; }}
-    .header-line {{ width: 60px; height: 4px; margin: 16px auto 36px;
-        background: {c['blue']}; border-radius: 2px;
+    .header {{ font-size: 50px; font-weight: 900; color: {c['text_dark']};
+               text-align: center; letter-spacing: -1px;
+               opacity: 0; animation: fadeInUp 0.65s 0.15s forwards; }}
+    .header-line {{ width: 70px; height: 5px; margin: 18px auto 36px;
+        background: {c['blue']}; border-radius: 3px;
         opacity: 0; animation: scaleIn 0.4s 0.4s forwards; }}
     .pipe {{ display: flex; flex-direction: column; align-items: center; gap: 16px; }}
-    .side {{ width: 90%; border-radius: 20px; padding: 28px 32px; text-align: center;
-             background: {c['bg_card']}; box-shadow: 0 4px 20px rgba(0,0,0,0.05); }}
+    .side {{ width: 90%; border-radius: 22px; padding: 30px 34px; text-align: center;
+             background: {c['bg_card']};
+             box-shadow: 0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06); }}
     .side-title {{ font-size: 34px; font-weight: 700; }}
     .side-sub {{ font-size: 24px; color: {c['text_muted']}; margin-top: 6px; }}
     .arrow {{ font-size: 32px; color: {c['text_muted']}; }}
-    .center {{ width: 90%; border-radius: 20px; padding: 32px;
+    .center {{ width: 90%; border-radius: 22px; padding: 34px;
                background: {c['bg_card']}; border: 2.5px solid {c['orange']};
-               box-shadow: 0 8px 32px rgba(0,0,0,0.08); }}
-    .center-title {{ font-size: 36px; font-weight: 800; color: {c['orange']};
+               box-shadow: 0 4px 12px rgba(0,0,0,0.04), 0 12px 36px {_hex_to_rgba(c['orange'], 0.12)}; }}
+    .center-title {{ font-size: 36px; font-weight: 900; color: {c['orange']};
                      text-align: center; margin-bottom: 20px; }}
-    .ci {{ font-size: 27px; color: {c['text_body']}; padding: 10px 0;
+    .ci {{ font-size: 27px; color: {c['text_body']}; padding: 12px 0;
            border-bottom: 1px solid {c['border']}; display: flex; gap: 12px; align-items: center; }}
     .ci:last-child {{ border-bottom: none; }}
-    .ci-num {{ width: 28px; height: 28px; border-radius: 50%; background: {_hex_to_rgba(c['orange'], 0.15)};
-               color: {c['orange']}; font-size: 16px; font-weight: 700; flex-shrink: 0;
+    .ci-num {{ width: 30px; height: 30px; border-radius: 50%; background: {_hex_to_rgba(c['orange'], 0.15)};
+               color: {c['orange']}; font-size: 16px; font-weight: 800; flex-shrink: 0;
                display: flex; align-items: center; justify-content: center; }}
     .callout-box {{ position: absolute; bottom: 80px; left: 50px; right: 50px;
-                    background: {_hex_to_rgba(c['green'], 0.06)};
-                    border: 1.5px solid {_hex_to_rgba(c['green'], 0.2)};
-                    border-radius: 16px; padding: 24px 28px; text-align: center; }}
+                    background: {_hex_to_rgba(c['green'], 0.08)};
+                    border: 1.5px solid {_hex_to_rgba(c['green'], 0.25)};
+                    border-radius: 18px; padding: 26px 30px; text-align: center;
+                    box-shadow: 0 4px 20px {_hex_to_rgba(c['green'], 0.08)}; }}
     .callout-text {{ font-size: 28px; color: {c['text_dark']}; font-weight: 600; }}
     """
 
     body = f"""<div class="scene">
         <div class="bg-dots"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
         <div class="header">{header}</div>
         <div class="header-line"></div>
         <div class="pipe">
@@ -969,10 +1062,12 @@ def closing_scene(data: dict, theme: dict, timing: SceneTiming | None = None) ->
 
     body = f"""<div class="scene">
         <div class="bg-grid"></div>
-        <div class="gradient-orb orb1" style="width:500px;height:500px;top:-50px;right:-100px;
-             background:{_hex_to_rgba(c['blue'], 0.1)}"></div>
-        <div class="gradient-orb orb2" style="width:350px;height:350px;bottom:150px;left:-80px;
-             background:{_hex_to_rgba(c['green'], 0.08)};animation-delay:0.5s"></div>
+        <div class="bg-noise"></div>
+        <div class="vignette"></div>
+        <div class="gradient-orb orb1" style="width:600px;height:600px;top:-80px;right:-120px;
+             background:radial-gradient(circle, {_hex_to_rgba(c['blue'], 0.14)}, transparent 70%)"></div>
+        <div class="gradient-orb orb2" style="width:400px;height:400px;bottom:100px;left:-100px;
+             background:radial-gradient(circle, {_hex_to_rgba(c['green'], 0.1)}, transparent 70%);animation-delay:0.5s"></div>
         <div class="close-container">
             <div class="title">{title}</div>
             <div class="divider"></div>

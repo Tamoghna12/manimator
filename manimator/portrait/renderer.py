@@ -113,7 +113,7 @@ def _get_scene_duration(scene_data: dict,
 
 def capture_scene_frames(html_path: Path, frames_dir: Path,
                          duration: float, width: int = 1080,
-                         height: int = 1920, fps: int = 30) -> int:
+                         height: int = 1920, fps: int = 60) -> int:
     """Capture a scene as PNG frames using Playwright screenshots.
 
     Uses Web Animations API to precisely control animation timing,
@@ -174,15 +174,18 @@ def capture_scene_frames(html_path: Path, frames_dir: Path,
 
 
 def encode_frames_to_video(frames_dir: Path, output_path: Path,
-                           fps: int = 30, crf: int = 24) -> Path:
+                           fps: int = 60, crf: int = 18) -> Path:
     """Encode PNG frames into a high-quality WebM video."""
     cmd = [
         "ffmpeg", "-y",
         "-framerate", str(fps),
         "-i", str(frames_dir / "frame_%05d.png"),
         "-c:v", "libvpx-vp9",
-        "-b:v", "4M",          # High bitrate for sharp text
+        "-b:v", "0",           # CQ mode: let CRF drive quality, no bitrate cap
         "-crf", str(crf),
+        "-quality", "good",
+        "-speed", "2",
+        "-row-mt", "1",        # Parallel row encoding
         "-pix_fmt", "yuva420p",
         "-an",                 # No audio yet
         str(output_path),
@@ -195,7 +198,7 @@ def encode_frames_to_video(frames_dir: Path, output_path: Path,
 
 def capture_scene(html_path: Path, output_path: Path,
                   duration: float, width: int = 1080,
-                  height: int = 1920, fps: int = 30) -> Path:
+                  height: int = 1920, fps: int = 60) -> Path:
     """Capture a single HTML scene as a high-quality video.
 
     1. Renders each frame as a PNG screenshot
@@ -219,7 +222,7 @@ def capture_scene(html_path: Path, output_path: Path,
 
 def render_all_scenes(html_dir: Path, scene_data_list: list,
                       output_dir: Path, width: int = 1080,
-                      height: int = 1920, fps: int = 30,
+                      height: int = 1920, fps: int = 60,
                       scene_timings: list[SceneTiming | None] | None = None,
                       ) -> list[Path]:
     """Render all HTML scenes to video files.
@@ -327,7 +330,8 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
             f"[0:v][1:v]xfade=transition=fade:duration={crossfade}:offset={offset:.3f}[v]",
             "-map", "[v]",
             *(["-map", "[a]"] if any_audio else []),
-            "-c:v", "libvpx-vp9", "-b:v", "4M",
+            "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
+            "-quality", "good", "-speed", "2", "-row-mt", "1",
             *(["-c:a", "libopus"] if any_audio else []),
             str(output_path),
         ]
@@ -381,7 +385,8 @@ def concatenate_videos(video_files: list[Path], output_path: Path,
             "-filter_complex", filter_complex,
             "-map", f"[{final_v}]",
             *(["-map", f"[{final_a}]"] if final_a else []),
-            "-c:v", "libvpx-vp9", "-b:v", "4M",
+            "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
+            "-quality", "good", "-speed", "2", "-row-mt", "1",
             *(["-c:a", "libopus"] if any_audio else []),
             str(output_path),
         ]
@@ -413,7 +418,8 @@ def _simple_concat(video_files: list[Path], output_path: Path,
             "ffmpeg", "-y",
             "-f", "concat", "-safe", "0",
             "-i", concat_file,
-            "-c:v", "libvpx-vp9", "-b:v", "4M",
+            "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "18",
+            "-quality", "good", "-speed", "2", "-row-mt", "1",
             *(["-c:a", "libopus"] if has_audio else []),
             str(output_path),
         ]
