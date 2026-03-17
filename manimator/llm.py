@@ -1,9 +1,12 @@
 """
 LLM integration for automated storyboard generation.
 
-Supports multiple providers (OpenAI, Anthropic, Google Gemini, ZhipuAI,
-OpenAI-compatible) with lazy SDK imports so only the used provider's
-package needs to be installed.
+Supports OpenAI, Anthropic, Google Gemini, ZhipuAI, Ollama, and any
+OpenAI-compatible endpoint. Lazy SDK imports mean only the used
+provider's package needs to be installed.
+
+Structured-output mode is used where supported, eliminating regex
+JSON extraction and parse retries for those providers. [web:128][web:133]
 
 Usage:
     from manimator.llm import generate_storyboard, list_providers
@@ -14,86 +17,166 @@ Usage:
         model="gpt-4o-mini",
         api_key="sk-...",
     )
+    print(result.storyboard)   # validated dict
+    print(result.usage)        # {"prompt_tokens": …, "total_tokens": …}
 """
 
+from __future__ import annotations
+
 import json
+import logging
 import os
+import random
 import re
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable
 
 from manimator.schema import Storyboard
 from manimator.topic_templates import get_storyboard_prompt
 
+log = logging.getLogger(__name__)
 
-# ── Provider Registry ────────────────────────────────────────────────────────
 
-PROVIDERS = {
-    "openai": {
-        "models": ["gpt-4o", "gpt-4o-mini"],
-        "default": "gpt-4o-mini",
-        "env_key": "OPENAI_API_KEY",
-    },
-    "anthropic": {
-        "models": ["claude-sonnet-4-20250514", "claude-haiku-4-5-20251001"],
-        "default": "claude-sonnet-4-20250514",
-        "env_key": "ANTHROPIC_API_KEY",
-    },
-    "google": {
-        "models": ["gemini-2.5-flash", "gemini-2.0-flash"],
-        "default": "gemini-2.5-flash",
-        "env_key": "GOOGLE_API_KEY",
-    },
-    "zhipuai": {
-        "models": ["glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-FlashX", "glm-4.7-Flash"],
-        "default": "glm-5",
-        "env_key": "ZHIPUAI_API_KEY",
-    },
-    "ollama": {
-        "models": ["llama3.2", "llama3.1", "mistral", "qwen2.5", "gemma3", "phi4"],
-        "default": "llama3.2",
-        "env_key": "",
-        "base_url": "http://localhost:11434/v1",
-    },
-    "openai_compatible": {
-        "models": [],
-        "default": "",
-        "env_key": "OPENAI_API_KEY",
-    },
+# ── Provider Registry ──────────────────────────────────────────────────────
+
+@dataclass(frozen=True)
+class ProviderInfo:
+    models:            list[str]
+    default:           str
+    env_key:           str
+    base_url:          str  = ""
+    # Does this provider support native JSON-schema structured outputs?
+    structured_output: bool = False
+    # Approximate context window in tokens (for prompt truncation guard)
+    context_window:    int  = 8_192
+
+
+PROVIDERS: dict[str, ProviderInfo] = {
+    "openai": ProviderInfo(
+        models=["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini"],
+        default="gpt-4o-mini",
+        env_key="OPENAI_API_KEY",
+        structured_output=True,    # json_schema response_format [web:128]
+        context_window=128_000,
+    ),
+    "anthropic": ProviderInfo(
+        models=[
+            "claude-opus-4-6", "claude-sonnet-4-5",
+            "claude-sonnet-4-20250514", "claude-haiku-4-5-20251001",
+        ],
+        default="claude-sonnet-4-20250514",
+        env_key="ANTHROPIC_API_KEY",
+        structured_output=True,    # output_config.format [web:133][web:136]
+        context_window=200_000,
+    ),
+    "google": ProviderInfo(
+        models=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro"],
+        default="gemini-2.5-flash",
+        env_key="GOOGLE_API_KEY",
+        structured_output=False,
+        context_window=1_000_000,
+    ),
+    "zhipuai": ProviderInfo(
+        models=["glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-FlashX", "glm-4.7-Flash"],
+        default="glm-5",
+        env_key="ZHIPUAI_API_KEY",
+        base_url="https://api.z.ai/api/paas/v4/",
+        structured_output=False,
+        context_window=128_000,
+    ),
+    "ollama": ProviderInfo(
+        models=["llama3.2", "llama3.1", "mistral", "qwen2.5", "gemma3", "phi4"],
+        default="llama3.2",
+        env_key="",
+        base_url="http://localhost:11434/v1",
+        structured_output=False,
+        context_window=32_768,
+    ),
+    "openai_compatible": ProviderInfo(
+        models=[],
+        default="",
+        env_key="OPENAI_API_KEY",
+        structured_output=False,
+        context_window=32_768,
+    ),
 }
 
 
-# ── JSON Extraction ──────────────────────────────────────────────────────────
+# ── Result type ────────────────────────────────────────────────────────────
+
+@dataclass
+class GenerationResult:
+    storyboard:  dict
+    provider:    str
+    model:       str
+    usage:       dict[str, int] = field(default_factory=dict)
+    retries:     int = 0
+    used_native_schema: bool = False
+
+
+# ── Backoff utility ────────────────────────────────────────────────────────
+
+def _backoff_delay(attempt: int, base: float = 1.5, cap: float = 60.0) -> float:
+    """
+    Exponential backoff with full jitter: delay ∈ [0, min(cap, base^attempt)].
+    Jitter prevents thundering-herd on concurrent retries. [web:134][web:137]
+    """
+    ceiling = min(cap, base ** attempt)
+    return random.uniform(0, ceiling)
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    """Detect 429 / rate-limit errors across provider SDK types."""
+    msg = str(exc).lower()
+    return (
+        "429" in msg
+        or "rate limit" in msg
+        or "rate_limit" in msg
+        or "too many requests" in msg
+        or (hasattr(exc, "status_code") and getattr(exc, "status_code") == 429)
+    )
+
+
+def _retry_after(exc: Exception) -> float | None:
+    """Extract Retry-After header value if the SDK exposes it."""
+    for attr in ("response", "headers"):
+        obj = getattr(exc, attr, None)
+        if obj is None:
+            continue
+        headers = getattr(obj, "headers", None) or (obj if isinstance(obj, dict) else None)
+        if headers and "retry-after" in (headers or {}):
+            try:
+                return float(headers["retry-after"])
+            except (TypeError, ValueError):
+                pass
+    return None
+
+
+# ── JSON extraction (fallback for non-structured-output providers) ─────────
 
 def extract_json(text: str) -> dict:
-    """Extract a JSON object from LLM output, stripping markdown fences and prose.
-
-    Handles:
-    - Clean JSON
-    - ```json ... ``` fenced blocks
-    - ``` ... ``` fenced blocks without language tag
-    - Leading/trailing prose around JSON
-    - Nested braces
-
+    """
+    Extract a JSON object from raw LLM text.
+    Handles markdown fences, leading prose, and malformed wrappers.
     Raises ValueError if no valid JSON object is found.
     """
-    # Try stripping markdown fences first
+    # Strip markdown fences
     fenced = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
     if fenced:
         text = fenced.group(1).strip()
 
-    # Try parsing the whole text directly
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
 
-    # Find the outermost { ... } using brace counting
+    # Brace-counting extraction for JSON embedded in prose
     start = text.find("{")
     if start == -1:
         raise ValueError("No JSON object found in LLM response")
 
-    depth = 0
-    in_string = False
-    escape_next = False
+    depth, in_string, escape_next = 0, False, False
     for i in range(start, len(text)):
         c = text[i]
         if escape_next:
@@ -112,223 +195,350 @@ def extract_json(text: str) -> dict:
         elif c == "}":
             depth -= 1
             if depth == 0:
-                candidate = text[start:i + 1]
                 try:
-                    return json.loads(candidate)
-                except json.JSONDecodeError:
-                    raise ValueError("Found JSON-like block but it failed to parse")
+                    return json.loads(text[start : i + 1])
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"Found JSON-like block but failed to parse: {e}"
+                    ) from e
 
     raise ValueError("No complete JSON object found in LLM response")
 
 
-# ── Provider Call Functions ──────────────────────────────────────────────────
+# ── Schema export for structured-output providers ─────────────────────────
 
-def _call_openai(prompt: str, model: str, api_key: str, **kwargs) -> str:
-    """Call OpenAI API. Lazy-imports openai SDK."""
+def _pydantic_json_schema() -> dict:
+    """
+    Export the Storyboard Pydantic model as a JSON Schema dict.
+    Used by OpenAI json_schema and Anthropic output_config modes.
+    """
+    schema = Storyboard.model_json_schema()
+    # OpenAI requires additionalProperties: false at every level [web:128]
+    def _patch(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "object" and "additionalProperties" not in node:
+                node["additionalProperties"] = False
+            for v in node.values():
+                _patch(v)
+        elif isinstance(node, list):
+            for v in node:
+                _patch(v)
+    _patch(schema)
+    return schema
+
+
+# ── Provider call functions ────────────────────────────────────────────────
+
+def _call_openai(
+    prompt: str, model: str, api_key: str,
+    use_structured: bool = True, **_,
+) -> tuple[str | dict, dict]:
+    """
+    OpenAI call. Uses json_schema Structured Outputs when `use_structured=True`. [web:128]
+    Returns (raw_text_or_parsed_dict, usage_dict).
+    """
     from openai import OpenAI
 
     client = OpenAI(api_key=api_key)
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a scientific video storyboard generator. "
-             "Output ONLY valid JSON matching the requested schema."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
-        max_tokens=4096,
+    system = (
+        "You are a scientific video storyboard generator. "
+        "Output ONLY valid JSON matching the requested schema."
     )
-    return response.choices[0].message.content
+
+    if use_structured:
+        schema = _pydantic_json_schema()
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": prompt},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "storyboard",
+                    "schema": schema,
+                    "strict": True,
+                },
+            },
+            temperature=0.7,
+            max_tokens=8192,
+        )
+        content = response.choices[0].message.content
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            parsed = content        # fall through to extract_json
+    else:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user",   "content": prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7,
+            max_tokens=8192,
+        )
+        parsed = response.choices[0].message.content
+
+    usage = {}
+    if hasattr(response, "usage") and response.usage:
+        usage = {
+            "prompt_tokens":     response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens,
+            "total_tokens":      response.usage.total_tokens,
+        }
+    return parsed, usage
 
 
-def _call_anthropic(prompt: str, model: str, api_key: str, **kwargs) -> str:
-    """Call Anthropic API. Lazy-imports anthropic SDK."""
+def _call_anthropic(
+    prompt: str, model: str, api_key: str,
+    use_structured: bool = True, **_,
+) -> tuple[str | dict, dict]:
+    """
+    Anthropic call. Uses output_config structured outputs when supported. [web:133][web:136]
+    Falls back to tool-use JSON extraction for older models.
+    """
     from anthropic import Anthropic
 
-    client = Anthropic(api_key=api_key)
-    response = client.messages.create(
-        model=model,
-        max_tokens=4096,
-        system="You are a scientific video storyboard generator. "
-               "Output ONLY valid JSON matching the requested schema.",
-        messages=[
-            {"role": "user", "content": prompt},
-        ],
+    client   = Anthropic(api_key=api_key)
+    system   = (
+        "You are a scientific video storyboard generator. "
+        "Output ONLY valid JSON matching the requested schema."
     )
-    return response.content[0].text
+    usage    = {}
+    parsed: str | dict
+
+    if use_structured:
+        schema = _pydantic_json_schema()
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=8192,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+                # Structured outputs public beta header [web:142]
+                extra_headers={"anthropic-beta": "structured-outputs-2025-11-13"},
+                output_config={                          # type: ignore[arg-type]
+                    "format": {
+                        "type": "json_schema",
+                        "schema": schema,
+                    }
+                },
+            )
+            parsed = json.loads(response.content[0].text)
+        except Exception as exc:
+            log.warning(
+                "Anthropic structured output failed (%s); falling back to text", exc
+            )
+            # Graceful fallback: plain text + extract_json
+            response = client.messages.create(
+                model=model,
+                max_tokens=8192,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            parsed = response.content[0].text
+    else:
+        response = client.messages.create(
+            model=model,
+            max_tokens=8192,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        parsed = response.content[0].text
+
+    if hasattr(response, "usage") and response.usage:
+        usage = {
+            "input_tokens":  response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+            "total_tokens":  (
+                response.usage.input_tokens + response.usage.output_tokens
+            ),
+        }
+    return parsed, usage
 
 
-def _call_google(prompt: str, model: str, api_key: str, **kwargs) -> str:
-    """Call Google Gemini API. Lazy-imports google-genai SDK."""
+def _call_google(
+    prompt: str, model: str, api_key: str, **_,
+) -> tuple[str, dict]:
+    """Google Gemini call via google-genai SDK."""
     from google import genai
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=model,
-        contents=f"You are a scientific video storyboard generator. "
-                 f"Output ONLY valid JSON matching the requested schema.\n\n{prompt}",
+        contents=(
+            "You are a scientific video storyboard generator. "
+            "Output ONLY valid JSON matching the requested schema.\n\n"
+            + prompt
+        ),
     )
-    return response.text
+    usage: dict = {}
+    if hasattr(response, "usage_metadata") and response.usage_metadata:
+        m = response.usage_metadata
+        usage = {
+            "prompt_tokens":     getattr(m, "prompt_token_count", 0),
+            "completion_tokens": getattr(m, "candidates_token_count", 0),
+            "total_tokens":      getattr(m, "total_token_count", 0),
+        }
+    return response.text, usage
 
 
-def _call_zhipuai(prompt: str, model: str, api_key: str, **kwargs) -> str:
-    """Call ZhipuAI (Z.AI) API. Uses OpenAI-compatible endpoint."""
-    from openai import OpenAI
-
-    client = OpenAI(
-        api_key=api_key,
-        base_url="https://api.z.ai/api/paas/v4/",
-    )
-    response = client.chat.completions.create(
-        model=model,
-        messages=[
-            {"role": "system", "content": "You are a scientific video storyboard generator. "
-             "Output ONLY valid JSON matching the requested schema."},
-            {"role": "user", "content": prompt},
-        ],
-        temperature=0.7,
-        max_tokens=4096,
-    )
-    return response.choices[0].message.content
-
-
-def _call_ollama(prompt: str, model: str, api_key: str = "", base_url: str = "", **kwargs) -> str:
-    """Call Ollama local API. Uses OpenAI-compatible endpoint with JSON mode."""
-    from openai import OpenAI
-
-    url = base_url or "http://localhost:11434/v1"
-    client = OpenAI(api_key=api_key or "ollama", base_url=url, timeout=300)
-
-    system = (
-        "You are a JSON generator. Your ONLY output must be a single raw JSON object. "
-        "No markdown, no code fences, no explanations, no comments. "
-        "Start your response with { and end with }."
-    )
-
-    try:
-        # Try with JSON mode enforced (supported by most Ollama models)
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-            response_format={"type": "json_object"},
-        )
-    except Exception:
-        # Fallback: some older models don't support response_format
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-        )
-    return response.choices[0].message.content
-
-
-def _call_openai_compatible(
-    prompt: str, model: str, api_key: str, base_url: str = "", **kwargs
-) -> str:
-    """Call an OpenAI-compatible API (Groq, Together, Ollama, etc.)."""
+def _call_openai_compat(
+    prompt: str, model: str, api_key: str,
+    base_url: str = "", temperature: float = 0.7,
+    json_mode: bool = True, **_,
+) -> tuple[str, dict]:
+    """
+    Generic OpenAI-compatible endpoint (ZhipuAI, Groq, Together, Ollama, etc.).
+    Attempts json_object response_format; falls back gracefully.
+    """
     from openai import OpenAI
 
     if not base_url:
-        raise ValueError("base_url is required for openai_compatible provider")
+        raise ValueError("base_url is required for this provider")
     if not model:
-        raise ValueError("model is required for openai_compatible provider")
+        raise ValueError("model is required for this provider")
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    response = client.chat.completions.create(
+    timeout = 300 if "localhost" in base_url or "ollama" in base_url else 60
+    client = OpenAI(api_key=api_key or "none", base_url=base_url, timeout=timeout)
+
+    system = (
+        "You are a JSON generator. Output ONLY a raw JSON object. "
+        "No markdown, no fences, no prose. Start with { and end with }."
+    )
+    kwargs: dict[str, Any] = dict(
         model=model,
         messages=[
-            {"role": "system", "content": "You are a scientific video storyboard generator. "
-             "Output ONLY valid JSON matching the requested schema."},
-            {"role": "user", "content": prompt},
+            {"role": "system", "content": system},
+            {"role": "user",   "content": prompt},
         ],
-        temperature=0.7,
-        max_tokens=4096,
+        temperature=temperature,
+        max_tokens=8192,
     )
-    return response.choices[0].message.content
+    if json_mode:
+        kwargs["response_format"] = {"type": "json_object"}
+
+    try:
+        response = client.chat.completions.create(**kwargs)
+    except Exception:
+        if json_mode:
+            # Some older models don't support response_format — retry without
+            kwargs.pop("response_format", None)
+            response = client.chat.completions.create(**kwargs)
+        else:
+            raise
+
+    usage: dict = {}
+    if hasattr(response, "usage") and response.usage:
+        u = response.usage
+        usage = {
+            "prompt_tokens":     getattr(u, "prompt_tokens", 0),
+            "completion_tokens": getattr(u, "completion_tokens", 0),
+            "total_tokens":      getattr(u, "total_tokens", 0),
+        }
+    return response.choices[0].message.content, usage
 
 
-_CALLERS = {
-    "openai": "_call_openai",
-    "anthropic": "_call_anthropic",
-    "google": "_call_google",
-    "zhipuai": "_call_zhipuai",
-    "ollama": "_call_ollama",
-    "openai_compatible": "_call_openai_compatible",
+# Dispatch table — each value is (callable, uses_structured_output_flag)
+_CALLERS: dict[str, Callable] = {
+    "openai":            _call_openai,
+    "anthropic":         _call_anthropic,
+    "google":            _call_google,
+    "zhipuai":           lambda *a, **kw: _call_openai_compat(
+                             *a, base_url="https://api.z.ai/api/paas/v4/", **kw),
+    "ollama":            lambda *a, **kw: _call_openai_compat(
+                             *a, base_url=kw.pop("base_url", "http://localhost:11434/v1"),
+                             temperature=0.2, **kw),
+    "openai_compatible": _call_openai_compat,
 }
 
 
-# ── Public API ───────────────────────────────────────────────────────────────
+# ── Public API ─────────────────────────────────────────────────────────────
 
-def list_providers() -> dict[str, list[str]]:
-    """Return {provider_name: [model_names]} for all registered providers."""
-    return {name: info["models"] for name, info in PROVIDERS.items()}
+def list_providers() -> dict[str, dict]:
+    """Return provider metadata dict keyed by provider name."""
+    return {
+        name: {
+            "models":            info.models,
+            "default":           info.default,
+            "structured_output": info.structured_output,
+            "context_window":    info.context_window,
+        }
+        for name, info in PROVIDERS.items()
+    }
 
 
 def generate_storyboard(
-    topic: str,
-    provider: str,
-    model: str | None = None,
-    api_key: str | None = None,
-    domain: str | None = None,
-    structure: str = "explainer",
-    format_type: str = "presentation",
-    theme: str = "wong",
-    base_url: str = "",
-    max_retries: int = 1,
-) -> dict:
-    """Generate a validated storyboard dict from a topic using an LLM.
+    topic:          str,
+    provider:       str,
+    model:          str | None    = None,
+    api_key:        str | None    = None,
+    domain:         str | None    = None,
+    structure:      str           = "explainer",
+    format_type:    str           = "presentation",
+    theme:          str           = "wong",
+    base_url:       str           = "",
+    max_retries:    int           = 2,
+    on_token_usage: Callable[[dict], None] | None = None,
+) -> GenerationResult:
+    """
+    Generate a validated storyboard from a topic using an LLM.
+
+    Uses native structured-output modes for OpenAI and Anthropic to
+    guarantee schema conformance without regex extraction. [web:128][web:133]
+    Falls back to extract_json for other providers.
 
     Args:
-        topic: The video topic (e.g. "How CRISPR works").
-        provider: LLM provider key (openai, anthropic, google, zhipuai, openai_compatible).
-        model: Model name. Falls back to provider default if omitted.
-        api_key: API key. Falls back to env var if omitted.
-        domain: Optional domain template key (e.g. biology_reel).
-        structure: Story structure key (default: explainer).
-        format_type: Video format (default: presentation).
-        theme: Color theme (default: wong).
-        base_url: Required for openai_compatible provider.
-        max_retries: Number of retries on validation failure (default: 1).
+        topic:          The video topic, e.g. "How CRISPR works".
+        provider:       Provider key — see list_providers().
+        model:          Model name; uses provider default if omitted.
+        api_key:        API key; reads env var if omitted.
+        domain:         Optional domain template key.
+        structure:      Story structure key (default: "explainer").
+        format_type:    Video format (default: "presentation").
+        theme:          Color theme (default: "wong").
+        base_url:       Required for openai_compatible / custom endpoints.
+        max_retries:    Max retries on rate-limit or validation failure.
+        on_token_usage: Optional callback receiving usage dict per attempt.
 
     Returns:
-        Validated storyboard dict ready for rendering.
+        GenerationResult with .storyboard (dict), .usage, .retries.
 
     Raises:
-        ValueError: Unknown provider, missing API key, or JSON extraction failure.
-        pydantic.ValidationError: Storyboard schema validation failure after retries.
+        ValueError:              Unknown provider / missing key / JSON failure.
+        pydantic.ValidationError: Schema mismatch after all retries exhausted.
     """
     if provider not in PROVIDERS:
-        raise ValueError(f"Unknown provider: {provider}. Available: {list(PROVIDERS.keys())}")
+        raise ValueError(
+            f"Unknown provider '{provider}'. "
+            f"Available: {list(PROVIDERS.keys())}"
+        )
 
     info = PROVIDERS[provider]
 
-    # Resolve API key (Ollama doesn't require one)
-    if not api_key and info.get("env_key"):
-        api_key = os.environ.get(info["env_key"], "")
-    if not api_key and info.get("env_key"):
+    # ── API key resolution ────────────────────────────────────────────
+    if not api_key and info.env_key:
+        api_key = os.environ.get(info.env_key, "")
+    if not api_key and info.env_key:
         raise ValueError(
-            f"No API key for {provider}. Set {info['env_key']} env var or pass api_key."
+            f"No API key for '{provider}'. "
+            f"Set the {info.env_key} environment variable or pass api_key=."
         )
+    api_key = api_key or ""
 
-    # Resolve base_url (use provider default if not explicitly passed)
-    if not base_url and info.get("base_url"):
-        base_url = info["base_url"]
-
-    # Resolve model
+    # ── Base URL / model defaults ─────────────────────────────────────
+    if not base_url and info.base_url:
+        base_url = info.base_url
     if not model:
-        model = info["default"]
-        if not model:
-            raise ValueError(f"No default model for {provider}. Specify --model.")
+        model = info.default
+    if not model:
+        raise ValueError(f"No default model for '{provider}'. Pass model=.")
 
-    # Build prompt
-    prompt = get_storyboard_prompt(
+    # ── Prompt construction ───────────────────────────────────────────
+    base_prompt = get_storyboard_prompt(
         topic=topic,
         structure=structure,
         domain=domain,
@@ -336,32 +546,115 @@ def generate_storyboard(
         theme=theme,
     )
 
-    # Look up caller dynamically so mock patching works in tests
-    import manimator.llm as _self
-    caller_name = _CALLERS[provider]
-    caller = getattr(_self, caller_name)
-    last_error = None
+    use_native = info.structured_output
+    caller     = _CALLERS[provider]
+    last_error: str | None = None
+    cumulative_usage: dict[str, int] = {}
 
-    for attempt in range(1 + max_retries):
-        # On retry, append error feedback to prompt
-        call_prompt = prompt
+    for attempt in range(max_retries + 1):
+
+        # Exponential backoff with jitter [web:134][web:137]
+        if attempt > 0:
+            delay = _backoff_delay(attempt)
+            log.warning(
+                "Retry %d/%d for provider=%s model=%s (%.1fs delay)",
+                attempt, max_retries, provider, model, delay,
+            )
+            time.sleep(delay)
+
+        # Inject previous error feedback into the prompt on retries
+        prompt = base_prompt
         if attempt > 0 and last_error:
-            call_prompt += (
-                f"\n\n--- PREVIOUS ATTEMPT FAILED ---\n"
-                f"Error: {last_error}\n"
-                f"Please fix the JSON and try again. Output ONLY valid JSON."
+            prompt += (
+                "\n\n--- PREVIOUS ATTEMPT FAILED ---\n"
+                f"Validation error: {last_error}\n"
+                "Please fix the JSON and output ONLY the corrected JSON object."
             )
 
-        raw_text = caller(call_prompt, model, api_key, base_url=base_url)
-        data = extract_json(raw_text)
+        # ── Call provider ─────────────────────────────────────────────
+        try:
+            raw, usage = caller(
+                prompt, model, api_key,
+                base_url=base_url,
+                use_structured=use_native,
+            )
+        except Exception as exc:
+            if _is_rate_limit(exc):
+                server_wait = _retry_after(exc)
+                if server_wait:
+                    log.warning("Rate-limited; server says wait %.0fs", server_wait)
+                    time.sleep(server_wait)
+                last_error = f"Rate limit: {exc}"
+                if attempt >= max_retries:
+                    raise
+                continue
+            raise
 
+        # Accumulate usage across retries
+        for k, v in usage.items():
+            cumulative_usage[k] = cumulative_usage.get(k, 0) + v
+        if on_token_usage:
+            on_token_usage(usage)
+
+        # ── Parse raw output ──────────────────────────────────────────
+        if isinstance(raw, dict):
+            # Structured output already parsed [web:128][web:133]
+            data = raw
+        else:
+            try:
+                data = extract_json(raw)
+            except ValueError as exc:
+                last_error = str(exc)
+                log.warning("JSON extraction failed (attempt %d): %s", attempt, exc)
+                if attempt >= max_retries:
+                    raise
+                continue
+
+        # ── Schema validation ─────────────────────────────────────────
         try:
             validated = Storyboard(**data)
-            return validated.model_dump()
-        except Exception as e:
-            last_error = str(e)
+            return GenerationResult(
+                storyboard=validated.model_dump(),
+                provider=provider,
+                model=model,
+                usage=cumulative_usage,
+                retries=attempt,
+                used_native_schema=use_native and isinstance(raw, dict),
+            )
+        except Exception as exc:
+            last_error = str(exc)
+            log.warning("Storyboard validation failed (attempt %d): %s", attempt, exc)
+            # On validation failure, fall back to text mode for next attempt
+            # so the model can correct its output freely
+            use_native = False
             if attempt >= max_retries:
                 raise
 
-    # Should not reach here, but just in case
     raise ValueError("Generation failed after all retries")
+
+
+# ── Async thin wrapper ─────────────────────────────────────────────────────
+
+async def generate_storyboard_async(
+    topic:       str,
+    provider:    str,
+    model:       str | None = None,
+    api_key:     str | None = None,
+    **kwargs,
+) -> GenerationResult:
+    """
+    Async wrapper over generate_storyboard.
+    Runs the blocking call in the default executor so it doesn't
+    block the event loop. Suitable for FastAPI / async pipelines.
+    """
+    import asyncio
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: generate_storyboard(
+            topic=topic, provider=provider,
+            model=model, api_key=api_key,
+            **kwargs,
+        ),
+    )
+

@@ -26,6 +26,7 @@ RUN pip install --no-cache-dir \
     "openai>=1.0" \
     "anthropic>=0.30" \
     "google-genai>=1.0" \
+    "scipy"\
     && playwright install --with-deps chromium
 
 # Copy source and install package

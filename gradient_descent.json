@@ -3,130 +3,429 @@
     "title": "Gradient Descent in Neural Networks",
     "resolution": [1920, 1080],
     "fps": 60,
-    "output_format": "webm",
+    "output_format": "mp4",
     "color_theme": "tol_bright"
   },
+
   "scenes": [
+
+    {
+      "type": "hook",
+      "id": "hook",
+      "hook_text": "How does a neural network actually learn?",
+      "highlight_words": ["actually", "learn"],
+      "subtitle": "The mathematics of gradient descent — from loss landscapes to weight updates",
+      "stat_value": 300,
+      "stat_suffix": "× faster",
+      "exit_style": "flash",
+      "seed": 7,
+      "timing": {
+        "bar_grow": 0.20,
+        "title_fade": 0.50,
+        "word_lag": 0.08,
+        "counter_duration": 0.70,
+        "scene_pause": 0.80,
+        "transition": 0.25
+      }
+    },
+
     {
       "type": "title",
       "id": "title",
       "title": "Gradient Descent: How Neural Networks Learn",
-      "subtitle": "From Loss Landscapes to Weight Updates",
-      "footnote": "Ruder (2016) arXiv:1609.04747 — An overview of gradient descent optimization"
+      "subtitle": "From Loss Landscapes to Adaptive Weight Updates",
+      "authors": "S. Ruder · D. Kingma · J. Ba",
+      "affiliation": "Survey based on arXiv:1609.04747 & ICLR 2015",
+      "date": "Deep Learning Seminar — March 2026",
+      "footnote": "Ruder (2016) — An overview of gradient descent optimization algorithms",
+      "pulse_accent": true
     },
+
     {
       "type": "bullet_list",
       "id": "intuition",
       "header": "1. Core Intuition",
       "items": [
-        "A neural network is a parameterized function f(x; θ)",
-        "Training = finding θ that minimizes a loss function L(θ)",
-        "Gradient ∇L(θ) points in the direction of steepest ascent",
-        "We step opposite to the gradient: θ ← θ − η∇L(θ)",
-        "Learning rate η controls step size (too large = diverge, too small = slow)"
+        {
+          "text": "A neural network is a parameterized function <b>f(x; θ)</b>",
+          "icon": "▸"
+        },
+        {
+          "text": "Training = finding <b>θ</b> that minimizes a loss <b>L(θ)</b>",
+          "icon": "▸"
+        },
+        {
+          "text": "Gradient <b>∇L(θ)</b> points in the direction of steepest <i>ascent</i>",
+          "icon": "▸",
+          "highlight": true
+        },
+        {
+          "text": "We step <i>opposite</i> to the gradient: θ ← θ − η∇L(θ)",
+          "icon": "▸",
+          "tag": "key update"
+        },
+        {
+          "text": "η too large → diverge; η too small → painfully slow",
+          "icon": "⚠"
+        },
+        {
+          "text": "Convex functions: guaranteed convergence to global minimum",
+          "icon": "✔",
+          "tag": "Boyd 2004"
+        }
       ],
       "callout": "Gradient descent is guaranteed to converge to a local minimum for convex functions (Boyd & Vandenberghe, 2004)."
     },
+
     {
       "type": "flowchart",
       "id": "training_loop",
       "header": "2. The Training Loop",
       "stages": [
-        {"label": "Forward\nPass", "color_key": "blue", "bg": "#E8F0FA"},
-        {"label": "Compute\nLoss", "color_key": "red", "bg": "#FBE8E8"},
-        {"label": "Backward\nPass", "color_key": "green", "bg": "#E8F5E8"},
-        {"label": "Update\nWeights", "color_key": "purple", "bg": "#F0E8F5"},
-        {"label": "Repeat", "color_key": "cyan", "bg": "#E8F5F5"}
+        {
+          "label": "Forward\nPass",
+          "sublabel": "ŷ = f(x; θ)",
+          "color_key": "tol_blue",
+          "bg": "#E8F0FA"
+        },
+        {
+          "label": "Compute\nLoss",
+          "sublabel": "L = ℓ(ŷ, y)",
+          "color_key": "tol_red",
+          "bg": "#FBE8E8"
+        },
+        {
+          "label": "Backward\nPass",
+          "sublabel": "∇L via chain rule",
+          "color_key": "tol_green",
+          "bg": "#E8F5E8"
+        },
+        {
+          "label": "Update\nWeights",
+          "sublabel": "θ ← θ − η∇L",
+          "color_key": "tol_purple",
+          "bg": "#F0E8F5"
+        },
+        {
+          "label": "Evaluate\nMetrics",
+          "sublabel": "val loss, accuracy",
+          "color_key": "tol_cyan",
+          "bg": "#E8F5F5"
+        }
       ],
-      "recycle": {"from_idx": 4, "to_idx": 0, "label": "Until convergence"},
-      "callout": "Backpropagation computes ∇L via the chain rule in O(n) time (Rumelhart et al., 1986)."
+      "recycle": {
+        "from_idx": 4,
+        "to_idx": 0,
+        "label": "Until convergence"
+      },
+      "callout": "Backpropagation computes ∇L via the chain rule in O(n) time — Rumelhart, Hinton & Williams (1986)."
     },
+
     {
       "type": "comparison_table",
       "id": "variants",
       "header": "3. Optimizer Variants",
-      "columns": ["Optimizer", "Update Rule", "Adaptive LR", "Momentum"],
+      "columns": ["Optimizer", "Update Rule", "Adaptive LR", "Momentum", "Memory"],
       "rows": [
-        ["SGD", "θ − η∇L", "No", "Optional"],
-        ["Adam", "θ − η·m/(√v + ε)", "Yes", "Yes (β₁, β₂)"],
-        ["AdaGrad", "θ − η·∇L/√G", "Yes", "No"],
-        ["RMSProp", "θ − η·∇L/√E[g²]", "Yes", "No"],
-        ["AdamW", "Adam + decoupled L2", "Yes", "Yes"]
+        ["SGD",      "θ − η∇L",                 "✘", "Optional",    "O(1)"],
+        ["Momentum", "θ − η·v_t",               "✘", "✔ (β)",       "O(d)"],
+        ["AdaGrad",  "θ − η·∇L/√G_t",           "✔", "✘",           "O(d)"],
+        ["RMSProp",  "θ − η·∇L/√E[g²]",         "✔", "✘",           "O(d)"],
+        ["Adam",     "θ − η·m̂_t/(√v̂_t + ε)",   "✔", "✔ (β₁, β₂)", "O(2d)"],
+        ["AdamW",    "Adam + decoupled λ‖θ‖₂",  "✔", "✔ (β₁, β₂)", "O(2d)"]
       ],
-      "callout": "Adam (Kingma & Ba, 2015) is the default for most deep learning tasks."
+      "highlight_rows": [4, 5],
+      "callout": "Adam (Kingma & Ba, 2015) dominates most deep learning tasks; AdamW adds proper weight decay decoupling."
     },
+
     {
       "type": "bar_chart",
       "id": "convergence",
-      "header": "4. Convergence Speed (epochs to 95% accuracy)",
+      "header": "4. Convergence Speed — Epochs to 95% Val. Accuracy (CIFAR-10, ResNet-18)",
+      "y_axis_label": "\\mathrm{Epochs\\ to\\ 95\\%\\ val.\\ accuracy}",
+      "x_axis_label": "\\mathrm{Optimizer}",
       "bars": [
-        {"label": "SGD", "value": 120, "color_key": "blue"},
-        {"label": "SGD+\nMomentum", "value": 65, "color_key": "cyan"},
-        {"label": "AdaGrad", "value": 80, "color_key": "green"},
-        {"label": "RMSProp", "value": 45, "color_key": "red"},
-        {"label": "Adam", "value": 30, "color_key": "purple"}
+        {
+          "label": "SGD",
+          "value": 118,
+          "error": 9.2,
+          "n": 5,
+          "color_key": "tol_blue"
+        },
+        {
+          "label": "SGD +\nMomentum",
+          "value": 72,
+          "error": 6.1,
+          "n": 5,
+          "color_key": "tol_cyan"
+        },
+        {
+          "label": "AdaGrad",
+          "value": 84,
+          "error": 7.4,
+          "n": 5,
+          "color_key": "tol_green"
+        },
+        {
+          "label": "RMSProp",
+          "value": 48,
+          "error": 4.3,
+          "n": 5,
+          "color_key": "tol_orange"
+        },
+        {
+          "label": "Adam",
+          "value": 31,
+          "error": 2.8,
+          "n": 5,
+          "color_key": "tol_red"
+        },
+        {
+          "label": "AdamW",
+          "value": 28,
+          "error": 2.1,
+          "n": 5,
+          "color_key": "tol_purple",
+          "tag": "best"
+        }
       ],
-      "callout": "Adaptive methods converge faster but may generalize worse (Wilson et al., 2017 NeurIPS)."
+      "significance_brackets": [
+        { "between": [0, 4], "label": "***" },
+        { "between": [4, 5], "label": "n.s." }
+      ],
+      "callout": "Adaptive methods converge 3–4× faster in early epochs; AdamW generalises marginally better than Adam (Wilson et al., 2017 NeurIPS)."
     },
+
     {
       "type": "equation",
       "id": "adam_update",
       "header": "5. The Adam Update Rule",
       "latex": "\\theta_{t+1} = \\theta_t - \\frac{\\eta}{\\sqrt{\\hat{v}_t} + \\epsilon} \\cdot \\hat{m}_t",
-      "explanation": "Combines momentum (first moment) with RMSProp (second moment) for adaptive per-parameter learning rates.",
-      "callout": "Default hyperparameters: η=0.001, β₁=0.9, β₂=0.999, ε=1e-8."
+      "font_size": 54,
+      "term_colors": [
+        { "substring": "\\hat{m}_t",  "color": "#EE6677" },
+        { "substring": "\\hat{v}_t",  "color": "#4477AA" },
+        { "substring": "\\eta",       "color": "#228833" },
+        { "substring": "\\epsilon",   "color": "#CCBB44" }
+      ],
+      "braces": [
+        {
+          "substring": "\\hat{m}_t",
+          "label": "\\text{1st moment (momentum)}",
+          "color": "#EE6677",
+          "direction": -1
+        },
+        {
+          "substring": "\\hat{v}_t",
+          "label": "\\text{2nd moment (RMSProp)}",
+          "color": "#4477AA",
+          "direction": -1
+        }
+      ],
+      "focus_terms": [
+        { "substring": "\\hat{m}_t", "color": "#EE6677" },
+        { "substring": "\\hat{v}_t", "color": "#4477AA" }
+      ],
+      "derivation_steps": [
+        "\\hat{m}_t = \\frac{m_t}{1 - \\beta_1^t}, \\quad \\hat{v}_t = \\frac{v_t}{1 - \\beta_2^t}",
+        "m_t = \\beta_1 m_{t-1} + (1 - \\beta_1)\\, g_t, \\quad v_t = \\beta_2 v_{t-1} + (1-\\beta_2)\\, g_t^2"
+      ],
+      "term_colors_per_step": [
+        [
+          { "substring": "\\hat{m}_t", "color": "#EE6677" },
+          { "substring": "\\hat{v}_t", "color": "#4477AA" }
+        ],
+        [
+          { "substring": "\\beta_1",   "color": "#EE6677" },
+          { "substring": "\\beta_2",   "color": "#4477AA" },
+          { "substring": "g_t",        "color": "#228833" }
+        ]
+      ],
+      "symbols": [
+        { "symbol": "\\hat{m}_t",  "meaning": "bias-corrected 1st moment estimate (momentum)" },
+        { "symbol": "\\hat{v}_t",  "meaning": "bias-corrected 2nd moment estimate (RMSProp)" },
+        { "symbol": "\\eta",       "meaning": "learning rate (default 0.001)" },
+        { "symbol": "\\epsilon",   "meaning": "numerical stability constant (default 1×10⁻⁸)" },
+        { "symbol": "\\beta_1",    "meaning": "1st moment decay (default 0.9)" },
+        { "symbol": "\\beta_2",    "meaning": "2nd moment decay (default 0.999)" }
+      ],
+      "legend_accent": "#4477AA",
+      "explanation": "Adam unifies momentum (β₁) and per-parameter LR scaling (β₂) with bias correction for cold-start stability.",
+      "callout": "Default hyperparameters are robust across architectures; ε prevents division by zero in sparse gradient regimes."
     },
+
     {
       "type": "scatter_plot",
       "id": "loss_landscape",
-      "header": "6. Loss Landscape Topology",
-      "clusters": [
-        {"label": "Global minimum", "center": [2.5, 2.5], "n": 15, "spread": 0.3, "color_key": "green"},
-        {"label": "Local minima", "center": [-2.0, 1.0], "n": 25, "spread": 0.6, "color_key": "blue"},
-        {"label": "Saddle points", "center": [0.5, -2.0], "n": 20, "spread": 1.0, "color_key": "red"},
-        {"label": "Plateau regions", "center": [-3.0, -2.5], "n": 30, "spread": 1.2, "color_key": "cyan"}
+      "header": "6. Loss Landscape Topology (PCA Projection)",
+      "axes": [
+        "\\mathrm{PC}_1\\ (\\theta_{1})",
+        "\\mathrm{PC}_2\\ (\\theta_{2})"
       ],
-      "axes": ["Weight dimension 1", "Weight dimension 2"],
-      "callout": "In high dimensions, saddle points are far more common than local minima (Dauphin et al., 2014)."
+      "seed": 42,
+      "clusters": [
+        {
+          "label": "Global minimum",
+          "center": [2.5, 2.0],
+          "cov": [[0.08, 0.02], [0.02, 0.10]],
+          "n": 18,
+          "color_key": "tol_green",
+          "shape": "circle",
+          "show_hull": false
+        },
+        {
+          "label": "Local minima",
+          "center": [-2.2, 1.2],
+          "cov": [[0.30, 0.08], [0.08, 0.22]],
+          "n": 28,
+          "color_key": "tol_blue",
+          "shape": "square",
+          "show_hull": true
+        },
+        {
+          "label": "Saddle points",
+          "center": [0.4, -2.2],
+          "cov": [[0.90, -0.40], [-0.40, 0.50]],
+          "n": 35,
+          "color_key": "tol_red",
+          "shape": "diamond",
+          "show_hull": false
+        },
+        {
+          "label": "Plateau regions",
+          "center": [-3.0, -2.2],
+          "cov": [[1.10, 0.20], [0.20, 0.80]],
+          "n": 40,
+          "color_key": "tol_cyan",
+          "shape": "triangle",
+          "show_hull": true
+        }
+      ],
+      "callout": "In high dimensions, saddle points are exponentially more common than local minima — but SGD noise actively escapes them (Dauphin et al., 2014; Du et al., 2024)."
     },
+
     {
       "type": "pipeline_diagram",
       "id": "modern_training",
       "header": "7. Modern Training Pipeline",
+      "curved_arrows": false,
+      "show_pulse": true,
+      "top_arc": true,
       "left_track": {
         "label": "Data Pipeline",
-        "color_key": "blue",
-        "sublabel": "Augmentation, batching, prefetch"
+        "sublabel": "Augmentation & batching",
+        "color_key": "tol_blue",
+        "arrow_direction": "right",
+        "arrow_label": "mini-batches",
+        "items": [
+          { "text": "Random crop / flip augmentation", "icon": "▸" },
+          { "text": "Stratified mini-batch sampling",  "icon": "▸" },
+          { "text": "Async prefetch to GPU VRAM",      "icon": "▸", "highlight": true },
+          { "text": "Normalise: μ=0, σ=1 per channel", "icon": "▸", "tag": "critical" }
+        ]
       },
       "right_track": {
         "label": "Regularization",
-        "color_key": "green",
-        "sublabel": "Dropout, weight decay, early stopping"
+        "sublabel": "Preventing overfitting",
+        "color_key": "tol_green",
+        "arrow_direction": "left",
+        "arrow_label": "val loss signal",
+        "items": [
+          { "text": "Dropout (p = 0.1–0.5)",           "icon": "▸" },
+          { "text": "Decoupled weight decay (AdamW)",  "icon": "▸", "highlight": true },
+          { "text": "Early stopping on val loss",       "icon": "▸" },
+          { "text": "Stochastic depth / DropPath",     "icon": "▸", "tag": "ViTs" }
+        ]
       },
       "center_block": {
         "label": "Training Engine",
-        "color_key": "red",
-        "items": [
-          "Mixed-precision (FP16/BF16)",
-          "Gradient accumulation",
-          "Learning rate scheduling",
-          "Distributed data parallel",
-          "Gradient clipping"
+        "sublabel": "PyTorch DDP + AMP",
+        "color_key": "tol_red",
+        "sections": [
+          {
+            "label": "Precision",
+            "color_key": "tol_orange",
+            "items": [
+              { "text": "Mixed-precision BF16/FP16", "tag": "2× throughput" },
+              "Gradient scaling (GradScaler)"
+            ]
+          },
+          {
+            "label": "Optimisation",
+            "color_key": "tol_red",
+            "items": [
+              { "text": "Cosine annealing + warm restarts", "highlight": true },
+              "Gradient clipping ‖∇‖₂ ≤ 1.0",
+              "Gradient accumulation (effective BS)"
+            ]
+          },
+          {
+            "label": "Distribution",
+            "color_key": "tol_purple",
+            "items": [
+              "Distributed data parallel (DDP)",
+              { "text": "AllReduce gradient sync", "tag": "NCCL" }
+            ]
+          }
         ]
       },
-      "callout": "Modern training uses cosine annealing with warm restarts (Loshchilov & Hutter, 2017)."
+      "callout": "Cosine annealing with warm restarts (Loshchilov & Hutter, 2017) consistently outperforms fixed-schedule LR decay."
     },
+
     {
       "type": "closing",
       "id": "refs",
       "title": "Key References",
+      "hold_time": 5.0,
       "references": [
-        "Rumelhart et al. (1986) Nature 323, 533-536",
-        "Kingma & Ba (2015) ICLR — Adam optimizer",
-        "Ruder (2016) arXiv:1609.04747 — Optimizer survey",
-        "Dauphin et al. (2014) NeurIPS — Saddle points",
-        "Loshchilov & Hutter (2017) ICLR — Cosine annealing"
+        {
+          "authors": "Rumelhart D E, Hinton G E, Williams R J",
+          "year": "1986",
+          "title": "Learning representations by back-propagating errors",
+          "journal": "Nature",
+          "volume": "323",
+          "pages": "533–536",
+          "doi": "10.1038/323533a0"
+        },
+        {
+          "authors": "Kingma D P, Ba J",
+          "year": "2015",
+          "title": "Adam: A method for stochastic optimization",
+          "journal": "ICLR",
+          "doi": "10.48550/arXiv.1412.6980"
+        },
+        {
+          "authors": "Ruder S",
+          "year": "2016",
+          "title": "An overview of gradient descent optimization algorithms",
+          "journal": "arXiv",
+          "doi": "10.48550/arXiv.1609.04747"
+        },
+        {
+          "authors": "Dauphin Y N, Ganguli S et al.",
+          "year": "2014",
+          "title": "Identifying and attacking the saddle point problem in high-dimensional non-convex optimization",
+          "journal": "NeurIPS",
+          "volume": "27"
+        },
+        {
+          "authors": "Wilson A C, Roelofs R et al.",
+          "year": "2017",
+          "title": "The marginal value of momentum for small learning rate SGD",
+          "journal": "NeurIPS",
+          "volume": "30",
+          "doi": "10.48550/arXiv.1705.08292"
+        },
+        {
+          "authors": "Loshchilov I, Hutter F",
+          "year": "2017",
+          "title": "SGDR: Stochastic gradient descent with warm restarts",
+          "journal": "ICLR",
+          "doi": "10.48550/arXiv.1608.03983"
+        }
       ]
     }
+
   ]
 }
+
